@@ -23,6 +23,14 @@
 - Upload com pré-checagem de extensão e tamanho no navegador (a API valida o conteúdo real). Download por link autorizado, sempre como anexo.
 - Diálogo acessível com Radix (`radix-ui`); demais controles nativos estilizados.
 
+## Etapa 11 — análise e decisão
+
+- Detalhe da solicitação em abas (Radix Tabs; aba na URL `?aba=analise`): Dados e documentos | Análise | Histórico.
+- Aba Análise: indicadores descritivos com fórmula e aviso (sem cores/faixas/score), pendências (criar, resolver), pareceres (append-only, "Vigente"), painel de decisão.
+- Decisão: diálogo exige resultado, justificativa (mín. 20) e marcação explícita "decisão humana, tomada por mim"; alerta quando não há parecer, quando há pendências abertas e quando a decisão diverge do parecer; erros `review-required`/`open-issues` da API exibidos no diálogo.
+- Ações de análise aparecem só para o analista responsável durante a análise (`useAnalysisAccess`); validação de documentos como coluna extra (aceitar/rejeitar com motivo). Admin atribui/reatribui analista ativo.
+- Verificado no navegador: F4–F7 completo (assumir, validar, pendência, solicitar informações, operador complementa e devolve, resolver, parecer, tentativa de decidir sem parecer recusada, aprovação).
+
 ## Pendências registradas
 
 - ~~Bundle único de ~561 kB~~ **Resolvido na Etapa 10**: todas as telas (inclusive login e troca de senha) são carregadas sob demanda (`lazy` do React Router). Chunk inicial: 297 kB (92 kB gzip); zod e react-hook-form só baixam com os formulários.

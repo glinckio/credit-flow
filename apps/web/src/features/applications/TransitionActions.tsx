@@ -9,11 +9,12 @@ import { ApiError, errorMessage } from '@/lib/api';
 import { ACTION_LABELS } from '@/lib/labels';
 import { type Application, type SimpleAction, useTransition } from './applications-api';
 
-/** Transitions handled here; analysis-specific ones live in the analysis panel. */
+/** Transitions handled here; assignment and the final decision have their own dialogs. */
 const HANDLED: readonly SimpleAction[] = [
   'submit',
   'start-review',
   'release',
+  'request-information',
   'resume',
   'cancel',
   'reopen',
@@ -35,6 +36,11 @@ const CONFIG: Partial<
     description: 'Você passa a ser o analista responsável por esta solicitação.',
   },
   release: { reason: 'none', description: 'A solicitação volta para a fila, sem responsável.' },
+  'request-information': {
+    reason: 'optional',
+    description:
+      'A solicitação volta ao operador para complementação. As pendências abertas ficam visíveis para ele.',
+  },
   resume: {
     reason: 'optional',
     description:
@@ -84,6 +90,10 @@ export function TransitionActions({ application }: { application: Application })
   };
 
   const err = transition.error;
+  const noIssues =
+    err instanceof ApiError && err.code === 'no-open-issues'
+      ? 'Registre ao menos uma pendência (aba Análise) antes de solicitar informações.'
+      : null;
   const missingDocs =
     err instanceof ApiError && err.code === 'missing-required-documents'
       ? err.problem.detail
@@ -128,7 +138,9 @@ export function TransitionActions({ application }: { application: Application })
           {transition.isError && (
             <Alert
               variant="destructive"
-              title={missingDocs ? 'Documentos obrigatórios ausentes' : errorMessage(err)}
+              title={
+                missingDocs ? 'Documentos obrigatórios ausentes' : (noIssues ?? errorMessage(err))
+              }
             >
               {missingDocs}
             </Alert>
