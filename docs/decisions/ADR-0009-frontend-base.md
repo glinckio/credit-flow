@@ -31,6 +31,13 @@
 - Ações de análise aparecem só para o analista responsável durante a análise (`useAnalysisAccess`); validação de documentos como coluna extra (aceitar/rejeitar com motivo). Admin atribui/reatribui analista ativo.
 - Verificado no navegador: F4–F7 completo (assumir, validar, pendência, solicitar informações, operador complementa e devolve, resolver, parecer, tentativa de decidir sem parecer recusada, aprovação).
 
+## Etapa 12 — dashboard, usuários e auditoria
+
+- Dashboard: números como _stat tiles_ (não gráficos), cada um levando à lista filtrada; distribuição por status como barras horizontais de série única (um só tom, sem cores de status, valor e % sempre escritos). Tempos médios em dias/horas com a base usada; "dados insuficientes" quando não há decididas. Conferido contra SQL direto: todos os números idênticos.
+- Usuários: senha temporária gerada no navegador (`crypto.getRandomValues`), concessão "pode decidir" só para operador, papel próprio e auto-desativação bloqueados na UI (a API também recusa).
+- Auditoria: tabela paginada com expansão por linha (antes/depois por campo, metadados como `requestId` e IP), link para o registro auditado; atalho "Auditoria" no detalhe da solicitação para admins.
+- Bug de acessibilidade encontrado pelo teste: o rótulo do campo de senha apontava para o contêiner; corrigido para apontar para o `<input>`.
+
 ## Pendências registradas
 
 - ~~Bundle único de ~561 kB~~ **Resolvido na Etapa 10**: todas as telas (inclusive login e troca de senha) são carregadas sob demanda (`lazy` do React Router). Chunk inicial: 297 kB (92 kB gzip); zod e react-hook-form só baixam com os formulários.

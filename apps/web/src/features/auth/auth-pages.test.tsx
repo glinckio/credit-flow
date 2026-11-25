@@ -4,6 +4,29 @@ import { describe, expect, it } from 'vitest';
 import { jsonResponse, makeUser, renderApp } from '@/test/render';
 import { safeRedirect } from '@/lib/redirect';
 
+const EMPTY_METRICS = {
+  total: 0,
+  byStatus: {
+    DRAFT: 0,
+    SUBMITTED: 0,
+    UNDER_REVIEW: 0,
+    PENDING_INFORMATION: 0,
+    APPROVED: 0,
+    REJECTED: 0,
+    CANCELLED: 0,
+  },
+  awaitingReview: 0,
+  underReview: 0,
+  pendingInformation: 0,
+  withOpenIssues: 0,
+  approved: 0,
+  rejected: 0,
+  assignedToMe: 0,
+  openToDecision: { averageHours: null, sampleSize: 0, definition: 'x' },
+  submissionToDecision: { averageHours: null, sampleSize: 0, definition: 'x' },
+  generatedAt: '2026-11-25T12:00:00Z',
+};
+
 describe('safeRedirect', () => {
   it('accepts only same-app relative paths (no open redirect)', () => {
     expect(safeRedirect('/clientes?x=1')).toBe('/clientes?x=1');
@@ -81,17 +104,19 @@ describe('ChangePasswordPage', () => {
     let attempt = 0;
     const { router } = renderApp('/trocar-senha', {
       user: makeUser('ANALYST', { mustChangePassword: true }),
-      fetch: () =>
-        ++attempt === 1
-          ? jsonResponse(
-              {
-                type: '/problems/wrong-current-password',
-                title: 'Senha atual incorreta',
-                status: 422,
-              },
-              422,
-            )
-          : jsonResponse({ user: makeUser('ANALYST') }),
+      fetch: (url) =>
+        url.endsWith('/dashboard/metrics')
+          ? jsonResponse(EMPTY_METRICS)
+          : ++attempt === 1
+            ? jsonResponse(
+                {
+                  type: '/problems/wrong-current-password',
+                  title: 'Senha atual incorreta',
+                  status: 422,
+                },
+                422,
+              )
+            : jsonResponse({ user: makeUser('ANALYST') }),
     });
     await userEvent.type(await screen.findByLabelText(/Senha atual/), 'senha-errada-000');
     await userEvent.type(screen.getByLabelText(/^Nova senha/), 'nova-senha-segura-1');

@@ -1,5 +1,5 @@
 import { Permission, isEditable } from '@creditflow/shared';
-import { ClipboardCheck, FileText, History, Pencil } from 'lucide-react';
+import { ClipboardCheck, FileText, History, Pencil, ScrollText } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { ErrorState } from '@/app/pages/ErrorState';
 import { Field } from '@/components/field';
@@ -39,6 +39,7 @@ export function ApplicationDetailPage() {
 
 function ApplicationDetail({ application: a }: { application: Application }) {
   const canWrite = useHasPermission(Permission.APPLICATION_WRITE);
+  const canAudit = useHasPermission(Permission.AUDIT_READ);
   const canEdit = canWrite && isEditable(a.status);
   const access = useAnalysisAccess(a);
   const [params, setParams] = useSearchParams();
@@ -70,14 +71,24 @@ function ApplicationDetail({ application: a }: { application: Application }) {
           </span>
         }
         actions={
-          canEdit && (
-            <Link
-              to={`/solicitacoes/${a.id}/editar`}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              <Pencil aria-hidden /> Editar dados
-            </Link>
-          )
+          <>
+            {canAudit && (
+              <Link
+                to={`/admin/auditoria?entityId=${a.id}`}
+                className={buttonVariants({ variant: 'ghost' })}
+              >
+                <ScrollText aria-hidden /> Auditoria
+              </Link>
+            )}
+            {canEdit && (
+              <Link
+                to={`/solicitacoes/${a.id}/editar`}
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                <Pencil aria-hidden /> Editar dados
+              </Link>
+            )}
+          </>
         }
       />
 

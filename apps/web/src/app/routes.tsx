@@ -4,13 +4,16 @@ import { AppLayout } from './AppLayout';
 import { CHANGE_PASSWORD_PATH, RequireAuth, RequirePermission } from './guards';
 import { RouteErrorBoundary } from './pages/ErrorState';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 
 /**
  * Feature screens are code-split: each module is downloaded the first time
  * its route is visited, keeping the initial bundle small.
  */
 const lazy = {
+  dashboard: () =>
+    import('@/features/dashboard/DashboardPage').then((m) => ({ Component: m.DashboardPage })),
+  users: () => import('@/features/admin-users/UsersPage').then((m) => ({ Component: m.UsersPage })),
+  audit: () => import('@/features/audit/AuditPage').then((m) => ({ Component: m.AuditPage })),
   login: () => import('@/features/auth/LoginPage').then((m) => ({ Component: m.LoginPage })),
   changePassword: () =>
     import('@/features/auth/ChangePasswordPage').then((m) => ({ Component: m.ChangePasswordPage })),
@@ -55,7 +58,7 @@ export const routes: RouteObject[] = [
           {
             path: '/',
             element: <RequirePermission permission={Permission.DASHBOARD_READ} />,
-            children: [{ index: true, element: <PlaceholderPage title="Dashboard" stage={12} /> }],
+            children: [{ index: true, lazy: lazy.dashboard }],
           },
           {
             path: '/clientes',
@@ -96,12 +99,12 @@ export const routes: RouteObject[] = [
           {
             path: '/admin/usuarios',
             element: <RequirePermission permission={Permission.USER_MANAGE} />,
-            children: [{ index: true, element: <PlaceholderPage title="Usuários" stage={12} /> }],
+            children: [{ index: true, lazy: lazy.users }],
           },
           {
             path: '/admin/auditoria',
             element: <RequirePermission permission={Permission.AUDIT_READ} />,
-            children: [{ index: true, element: <PlaceholderPage title="Auditoria" stage={12} /> }],
+            children: [{ index: true, lazy: lazy.audit }],
           },
           { path: '*', element: <NotFoundPage /> },
         ],
