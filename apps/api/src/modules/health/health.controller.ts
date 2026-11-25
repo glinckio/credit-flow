@@ -2,6 +2,7 @@ import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOkResponse, ApiServiceUnavailableResponse, ApiTags } from '@nestjs/swagger';
 import { APP_NAME } from '@creditflow/shared';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { Public } from '../auth/access.decorators.js';
 
 export interface HealthResponse {
   status: 'ok';
@@ -12,6 +13,7 @@ export interface HealthResponse {
 
 @ApiTags('health')
 @Controller('health')
+@Public()
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 

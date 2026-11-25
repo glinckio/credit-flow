@@ -1,18 +1,41 @@
 import { validateEnv } from './env.js';
 
+const DB = 'postgresql://u:p@localhost:5433/db';
+
 describe('validateEnv', () => {
-  it('accepts a valid configuration and applies defaults', () => {
-    const env = validateEnv({ DATABASE_URL: 'postgresql://u:p@localhost:5433/db' });
-    expect(env).toEqual({
+  it('accepts a minimal configuration and applies defaults', () => {
+    expect(validateEnv({ DATABASE_URL: DB })).toEqual({
       NODE_ENV: 'development',
       API_PORT: 3000,
-      DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
+      DATABASE_URL: DB,
+      WEB_ORIGIN: 'http://localhost:5173',
+      SESSION_TTL_HOURS: 8,
+      COOKIE_SECURE: false,
+      LOGIN_RATE_LIMIT: 5,
+      LOG_LEVEL: 'info',
     });
   });
 
+  it('silences logs by default in tests', () => {
+    expect(validateEnv({ DATABASE_URL: DB, NODE_ENV: 'test' }).LOG_LEVEL).toBe('silent');
+  });
+
+  it('defaults to secure cookies in production and refuses to disable them', () => {
+    expect(validateEnv({ DATABASE_URL: DB, NODE_ENV: 'production' }).COOKIE_SECURE).toBe(true);
+    expect(() =>
+      validateEnv({ DATABASE_URL: DB, NODE_ENV: 'production', COOKIE_SECURE: 'false' }),
+    ).toThrow(/COOKIE_SECURE cannot be false in production/);
+  });
+
+  it('rejects an origin with a path', () => {
+    expect(() =>
+      validateEnv({ DATABASE_URL: DB, WEB_ORIGIN: 'http://localhost:5173/app' }),
+    ).toThrow(/WEB_ORIGIN/);
+  });
+
   it('reports every invalid variable at once', () => {
-    expect(() => validateEnv({ API_PORT: 'abc', NODE_ENV: 'staging' })).toThrow(
-      /NODE_ENV[\s\S]*API_PORT[\s\S]*DATABASE_URL/,
-    );
+    expect(() =>
+      validateEnv({ API_PORT: 'abc', NODE_ENV: 'staging', SESSION_TTL_HOURS: '0' }),
+    ).toThrow(/NODE_ENV[\s\S]*API_PORT[\s\S]*DATABASE_URL[\s\S]*SESSION_TTL_HOURS/);
   });
 });

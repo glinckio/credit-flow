@@ -2,7 +2,7 @@
 
 Plataforma de gestão e análise **manual** de solicitações de crédito. Projeto de estudo: todos os dados são **sintéticos** e a decisão de crédito é sempre **humana**. Não há IA nesta fase (Parte A).
 
-> Status: **Parte A — Etapa 2 concluída** (fundação + modelo de dados e seed sintético). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
+> Status: **Parte A — Etapa 3 concluída** (fundação, modelo de dados e seed, autenticação, RBAC, auditoria e administração de usuários). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
 
 ## Stack
 
@@ -80,6 +80,23 @@ Decisões e justificativas: [docs/decisions](docs/decisions).
 | `pnpm db:seed`                                   | Carrega dados sintéticos (exige banco vazio)                            |
 | `pnpm db:reset`                                  | **Apaga** o banco de desenvolvimento, reaplica migrations e roda o seed |
 | `pnpm build`                                     | Build de produção de todos os pacotes                                   |
+
+## API
+
+Contrato completo no Swagger (`/api/docs`). Convenções:
+
+- Prefixo `/api/v1`; autenticação por cookie de sessão definido em `POST /auth/login`.
+- Requisições que alteram dados exigem o cabeçalho `X-Requested-With: XMLHttpRequest` (CSRF).
+- Erros em `application/problem+json` (RFC 9457) com `type`, `title`, `status`, `errors[]` por campo e `requestId`.
+- Listagens: `?page=1&pageSize=20&sort=campo:asc|desc` → `{ data, meta: { page, pageSize, total } }`.
+
+| Disponível       | Rotas                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Saúde            | `GET /health`                                                                                           |
+| Autenticação     | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`                   |
+| Usuários (admin) | `GET/POST /users`, `GET/PATCH /users/:id`, `POST /users/:id/deactivate`, `/activate`, `/reset-password` |
+
+Segurança em detalhe: [docs/security.md](docs/security.md).
 
 ## Estrutura
 
