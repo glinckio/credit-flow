@@ -2,7 +2,7 @@
 
 Plataforma de gestão e análise **manual** de solicitações de crédito. Projeto de estudo: todos os dados são **sintéticos** e a decisão de crédito é sempre **humana**. Não há IA nesta fase (Parte A).
 
-> Status: **Parte A — Etapa 9 concluída** — backend completo; frontend com login, troca de senha obrigatória, layout e menu por permissão. Próximo: telas de clientes e solicitações. Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
+> Status: **Parte A — Etapa 10 concluída** — backend completo; frontend com login, clientes (lista, cadastro, edição, detalhe) e solicitações (lista, rascunho, edição, envio, cancelamento, documentos). Próximo: tela de análise e decisão. Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
 
 ## Stack
 
@@ -85,6 +85,8 @@ Decisões e justificativas: [docs/decisions](docs/decisions).
 
 - Acesse http://localhost:5173 e entre com um usuário demo (senha do seed). Usuários com senha temporária são levados a `/trocar-senha`.
 - O menu mostra só as áreas permitidas ao papel; a API recusa o resto de qualquer forma.
+- Fluxo do operador: **Clientes → Novo cliente → Nova solicitação → anexar identificação e comprovante de renda → Enviar para análise**.
+- Se a porta 5173 estiver ocupada por outro projeto, rode o web em outra porta e informe a mesma origem à API (exigido pela proteção CSRF): `WEB_PORT=5174` para o Vite e `WEB_ORIGIN=http://localhost:5174` para a API.
 - Decisões em [ADR-0009](docs/decisions/ADR-0009-frontend-base.md).
 
 ## API

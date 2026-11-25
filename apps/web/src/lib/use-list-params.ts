@@ -1,0 +1,34 @@
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router';
+
+/**
+ * List state (filters, sort, page) kept in the URL, so lists are linkable and
+ * survive reloads and back/forward navigation.
+ */
+export function useListParams<K extends string>(keys: readonly K[]) {
+  const [params, setParams] = useSearchParams();
+
+  const values = Object.fromEntries(keys.map((k) => [k, params.get(k) ?? ''])) as Record<K, string>;
+  const page = Math.max(1, Number(params.get('page')) || 1);
+
+  const set = useCallback(
+    (changes: Partial<Record<K | 'page', string | number | null>>) => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(changes)) {
+            if (v === null || v === '' || v === undefined) next.delete(k);
+            else next.set(k, String(v));
+          }
+          // Any filter change goes back to the first page.
+          if (!('page' in changes)) next.delete('page');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  return { values, page, set };
+}

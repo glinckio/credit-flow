@@ -15,7 +15,7 @@ export default defineConfig({
     conditions: ['source', ...defaultClientConditions],
   },
   server: {
-    port: 5173,
+    port: Number(process.env.WEB_PORT ?? 5173),
     strictPort: true,
     // Same-origin in development: the browser only talks to Vite, which proxies
     // /api to Nest. This keeps cookies first-party and CORS disabled.

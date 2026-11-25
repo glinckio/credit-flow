@@ -14,7 +14,16 @@
 6. **Rotas em português** (`/login`, `/trocar-senha`, `/clientes`, `/solicitacoes`, `/admin/usuarios`, `/admin/auditoria`); telas futuras ficam como placeholders identificando a etapa.
 7. **Testes**: Vitest + Testing Library + user-event sobre a **tabela de rotas real** num `createMemoryRouter`, com `fetch` simulado por teste.
 
+## Etapa 10 — telas de clientes e solicitações
+
+- Estado de listas (filtros, ordenação, página) na URL (`useListParams`): links compartilháveis, sobrevivem a reload/voltar.
+- Máscaras de CPF/CNPJ, CEP e telefone; valores em BRL digitados em pt-BR ("15.000,50") e enviados como decimal ("15000.50").
+- Schemas Zod do frontend reutilizam os validadores de `@creditflow/shared` (CPF/CNPJ, idade, UF, CEP); regras cruzadas usam `when` do Zod 4 para aparecer assim que os campos envolvidos são preenchidos.
+- Botões de transição vêm de `availableActions` da API; motivo obrigatório em cancelar/reabrir; erros da API (ex.: documentos obrigatórios ausentes) aparecem no próprio diálogo.
+- Upload com pré-checagem de extensão e tamanho no navegador (a API valida o conteúdo real). Download por link autorizado, sempre como anexo.
+- Diálogo acessível com Radix (`radix-ui`); demais controles nativos estilizados.
+
 ## Pendências registradas
 
-- Bundle único de ~561 kB (aviso do Vite > 500 kB): introduzir lazy-loading por rota quando as telas reais entrarem (Etapa 10).
+- ~~Bundle único de ~561 kB~~ **Resolvido na Etapa 10**: todas as telas (inclusive login e troca de senha) são carregadas sob demanda (`lazy` do React Router). Chunk inicial: 297 kB (92 kB gzip); zod e react-hook-form só baixam com os formulários.
 - Tema escuro fora do MVP.
