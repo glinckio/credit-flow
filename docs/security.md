@@ -1,6 +1,6 @@
 # Segurança — CreditFlow (Parte A)
 
-Estado atual: Etapa 3 (autenticação, autorização, auditoria, infraestrutura HTTP). Atualizado a cada etapa.
+Estado atual: Etapa 4 (autenticação, autorização, auditoria, infraestrutura HTTP, clientes). Atualizado a cada etapa.
 
 ## Autenticação
 
@@ -47,7 +47,7 @@ JSON estruturado (pino). Nunca registram corpo nem query string. Redação de `c
 - Rede de segurança: chaves que pareçam segredo (`password`, `token`, `hash`, `secret`, `cookie`, `authorization`) são descartadas em qualquer profundidade.
 - Tabela append-only (trigger no banco).
 
-Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`.
+Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo).
 
 ## Limites conhecidos
 

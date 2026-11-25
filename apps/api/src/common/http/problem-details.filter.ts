@@ -20,6 +20,7 @@ export interface ProblemDetails {
   detail?: string;
   errors?: FieldError[];
   requestId?: string;
+  [extension: string]: unknown;
 }
 
 const DEFAULT_TITLES: Record<number, [string, string]> = {
@@ -69,6 +70,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       return {
         ...problem(exception.getStatus(), exception.code, exception.title, exception.detail),
         ...(exception.errors ? { errors: exception.errors } : {}),
+        ...exception.extensions,
       };
     }
     if (exception instanceof ThrottlerException) {

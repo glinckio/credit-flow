@@ -16,9 +16,22 @@ export class AppException extends HttpException {
     readonly title: string,
     readonly detail?: string,
     readonly errors?: FieldError[],
+    /** RFC 9457 extension members (e.g. `existingCustomerId`). */
+    readonly extensions?: Record<string, unknown>,
   ) {
     super({ code, title, detail, errors }, status);
   }
+}
+
+/** 400 with per-field errors, same shape as DTO validation failures. */
+export function fieldValidationError(field: string, message: string): AppException {
+  return new AppException(
+    HttpStatus.BAD_REQUEST,
+    'validation-error',
+    'Dados inválidos',
+    'Corrija os campos indicados.',
+    [{ field, messages: [message] }],
+  );
 }
 
 export const Problems = {
@@ -44,8 +57,15 @@ export const Problems = {
     ),
   notFound: (what = 'Recurso') =>
     new AppException(HttpStatus.NOT_FOUND, 'not-found', `${what} não encontrado`),
-  conflict: (code: string, title: string, detail?: string) =>
-    new AppException(HttpStatus.CONFLICT, code, title, detail),
+  conflict: (code: string, title: string, detail?: string, extensions?: Record<string, unknown>) =>
+    new AppException(HttpStatus.CONFLICT, code, title, detail, undefined, extensions),
+  versionConflict: () =>
+    new AppException(
+      HttpStatus.CONFLICT,
+      'version-conflict',
+      'Registro alterado por outra pessoa',
+      'Recarregue os dados e aplique sua alteração novamente.',
+    ),
   businessRule: (code: string, title: string, detail?: string) =>
     new AppException(HttpStatus.UNPROCESSABLE_ENTITY, code, title, detail),
 };

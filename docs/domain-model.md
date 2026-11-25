@@ -40,6 +40,14 @@ erDiagram
 - **Triggers append-only** (`forbid_mutation`) bloqueiam `UPDATE`/`DELETE` por linha em `audit_events`, `application_status_history`, `credit_reviews`, `credit_decisions`. `TRUNCATE` não dispara triggers de linha — usado apenas pelos testes, apenas no banco de teste.
 - **FKs `ON DELETE RESTRICT`** em todas as relações: a aplicação não faz hard delete.
 
+## Regras de cliente (Etapa 4)
+
+- CPF para PF e CNPJ para PJ, validados por dígito verificador; armazenados só com dígitos; únicos (409 com `existingCustomerId`).
+- `type` e `documentNumber` são imutáveis após a criação.
+- Data de nascimento (PF, mín. 18 anos) ou de constituição (PJ), nunca no futuro.
+- Edição com controle de concorrência otimista: o cliente envia a `version` lida; versão desatualizada → 409 `version-conflict`.
+- Auditoria de edição registra apenas os campos alterados (antes/depois), evitando cópias integrais de dados pessoais.
+
 ## Exclusão, retenção e anonimização
 
 - Sem hard delete pela aplicação. Cliente é desativado (`INACTIVE`); documento é removido logicamente enquanto a solicitação é editável.

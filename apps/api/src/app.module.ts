@@ -14,6 +14,7 @@ import { PrismaModule } from './infra/prisma/prisma.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AccessGuard } from './modules/auth/access.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CustomersModule } from './modules/customers/customers.module.js';
 import { LOGIN_THROTTLER } from './modules/auth/login-throttle.guard.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -52,6 +53,7 @@ import { UsersModule } from './modules/users/users.module.js';
     AuditModule,
     AuthModule,
     UsersModule,
+    CustomersModule,
     HealthModule,
   ],
   providers: [
