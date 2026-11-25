@@ -1,6 +1,6 @@
 # Segurança — CreditFlow (Parte A)
 
-Estado atual: Etapa 4 (autenticação, autorização, auditoria, infraestrutura HTTP, clientes). Atualizado a cada etapa.
+Estado atual: Etapa 5 (autenticação, autorização, auditoria, infraestrutura HTTP, clientes, solicitações). Atualizado a cada etapa.
 
 ## Autenticação
 
@@ -24,6 +24,7 @@ Recuperação de senha por e-mail não existe no MVP (decisão 6.5 do plano): o 
 - `AccessGuard` global, **default deny**: toda rota precisa declarar `@Public()`, `@Authenticated()` ou `@RequirePermissions(...)`. Rota sem declaração responde 403, e um teste de integração varre todos os controllers e falha se alguma rota não declarar.
 - Permissões são recalculadas a cada requisição a partir do usuário no banco: mudança de papel/concessão vale na hora.
 - IDs malformados e inexistentes respondem 404 igual (não revelam existência).
+- Além da permissão da rota, o service reaplica a máquina de estados (status + permissão) e regras de objeto: analista não vê rascunhos (404); ações de análise só pelo responsável (`403 not-assignee`); cancelar em análise e reabrir só admin.
 
 ## CSRF
 
@@ -47,7 +48,7 @@ JSON estruturado (pino). Nunca registram corpo nem query string. Redação de `c
 - Rede de segurança: chaves que pareçam segredo (`password`, `token`, `hash`, `secret`, `cookie`, `authorization`) são descartadas em qualquer profundidade.
 - Tabela append-only (trigger no banco).
 
-Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo).
+Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo), `application.created`, `application.updated` (campos alterados), `application.status_changed` (com motivo e transição), `application.assigned`, `issue.created`, `issue.resolved`.
 
 ## Limites conhecidos
 

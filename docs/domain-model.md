@@ -48,6 +48,23 @@ erDiagram
 - Edição com controle de concorrência otimista: o cliente envia a `version` lida; versão desatualizada → 409 `version-conflict`.
 - Auditoria de edição registra apenas os campos alterados (antes/depois), evitando cópias integrais de dados pessoais.
 
+## Máquina de estados da solicitação (Etapa 5)
+
+Tabela única em [`packages/shared/src/application-state-machine.ts`](../packages/shared/src/application-state-machine.ts); regras e concorrência em [ADR-0006](decisions/ADR-0006-maquina-de-estados.md).
+
+| De                                           | Ação                | Para                        | Quem                                         |
+| -------------------------------------------- | ------------------- | --------------------------- | -------------------------------------------- |
+| DRAFT                                        | submit              | SUBMITTED                   | operador/admin (exige identificação + renda) |
+| SUBMITTED                                    | start-review        | UNDER_REVIEW                | analista (vira responsável)                  |
+| SUBMITTED, UNDER_REVIEW, PENDING_INFORMATION | assign              | UNDER_REVIEW / mesmo status | admin (analista ativo)                       |
+| UNDER_REVIEW                                 | release             | SUBMITTED                   | responsável ou admin                         |
+| UNDER_REVIEW                                 | request-information | PENDING_INFORMATION         | responsável (≥ 1 pendência aberta)           |
+| PENDING_INFORMATION                          | resume              | UNDER_REVIEW                | operador/admin                               |
+| DRAFT, SUBMITTED, PENDING_INFORMATION        | cancel              | CANCELLED                   | operador/admin (motivo)                      |
+| UNDER_REVIEW                                 | cancel              | CANCELLED                   | só admin (motivo)                            |
+| CANCELLED                                    | reopen              | SUBMITTED                   | só admin (motivo)                            |
+| UNDER_REVIEW                                 | approve / reject    | APPROVED / REJECTED         | Etapa 7                                      |
+
 ## Exclusão, retenção e anonimização
 
 - Sem hard delete pela aplicação. Cliente é desativado (`INACTIVE`); documento é removido logicamente enquanto a solicitação é editável.

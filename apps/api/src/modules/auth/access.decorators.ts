@@ -9,7 +9,8 @@ export const PASSWORD_CHANGE_PENDING_OK = 'creditflow:password-change-pending-ok
 export type AccessRule =
   | { kind: 'public' }
   | { kind: 'authenticated' }
-  | { kind: 'permissions'; permissions: Permission[] };
+  | { kind: 'permissions'; permissions: Permission[] }
+  | { kind: 'anyPermission'; permissions: Permission[] };
 
 /**
  * Every route MUST declare exactly one of these. Routes without a declaration
@@ -24,6 +25,10 @@ export const Authenticated = () =>
 /** Signed-in user holding ALL the listed permissions. */
 export const RequirePermissions = (...permissions: Permission[]) =>
   SetMetadata(ACCESS_METADATA, { kind: 'permissions', permissions } satisfies AccessRule);
+
+/** Signed-in user holding AT LEAST ONE of the listed permissions. */
+export const RequireAnyPermission = (...permissions: Permission[]) =>
+  SetMetadata(ACCESS_METADATA, { kind: 'anyPermission', permissions } satisfies AccessRule);
 
 /** Route stays reachable while the user still has to replace a temporary password. */
 export const AllowPasswordChangePending = () => SetMetadata(PASSWORD_CHANGE_PENDING_OK, true);

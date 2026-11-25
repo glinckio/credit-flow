@@ -62,6 +62,9 @@ export class AccessGuard implements CanActivate {
       const missing = rule.permissions.filter((p) => !user.permissions.includes(p));
       if (missing.length > 0) throw Problems.forbidden();
     }
+    if (rule.kind === 'anyPermission') {
+      if (!rule.permissions.some((p) => user.permissions.includes(p))) throw Problems.forbidden();
+    }
     return true;
   }
 }
