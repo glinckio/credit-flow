@@ -1,0 +1,13 @@
+// CreditFlow database schema.
+// Domain models are added in Stage 2 (see docs/plano-parte-a.md, section 3).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

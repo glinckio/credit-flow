@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Install-script allowlist (pnpm blocks dependency build scripts by default).
+allowBuilds:
+  # Prisma CLI/engines: needed for `prisma migrate` and client generation.
+  '@prisma/engines': true
+  prisma: true
+  # Telemetry only; not needed.
+  '@scarf/scarf': false
+
+# pnpm's minimumReleaseAge supply-chain protection is kept at its default:
+# freshly published versions are not installed. Do not add exclusions without review.

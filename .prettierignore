@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+dist
+coverage
+var
+apps/api/src/generated
+apps/api/prisma/migrations
+CREDITFLOW-PROJECT-AND-AGENTIC-ROADMAP.md
