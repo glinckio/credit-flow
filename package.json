@@ -15,7 +15,9 @@
     "typecheck": "pnpm --filter @creditflow/shared build && pnpm -r typecheck",
     "test": "pnpm --filter @creditflow/shared build && pnpm -r test",
     "db:generate": "pnpm --filter @creditflow/api db:generate",
-    "db:migrate": "pnpm --filter @creditflow/api db:migrate"
+    "db:migrate": "pnpm --filter @creditflow/api db:migrate",
+    "db:seed": "pnpm --filter @creditflow/api db:seed",
+    "db:reset": "pnpm --filter @creditflow/shared build && pnpm --filter @creditflow/api db:reset"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

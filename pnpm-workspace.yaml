@@ -9,6 +9,8 @@ allowBuilds:
   prisma: true
   # Telemetry only; not needed.
   '@scarf/scarf': false
+  # esbuild (via tsx): binary arrives through optionalDependencies; postinstall only re-verifies it.
+  esbuild: false
 
 # pnpm's minimumReleaseAge supply-chain protection is kept at its default:
 # freshly published versions are not installed. Do not add exclusions without review.

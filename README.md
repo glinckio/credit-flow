@@ -2,7 +2,7 @@
 
 Plataforma de gestão e análise **manual** de solicitações de crédito. Projeto de estudo: todos os dados são **sintéticos** e a decisão de crédito é sempre **humana**. Não há IA nesta fase (Parte A).
 
-> Status: **Parte A, Etapa 1 (fundação do monorepo)**. Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
+> Status: **Parte A — Etapa 2 concluída** (fundação + modelo de dados e seed sintético). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
 
 ## Stack
 
@@ -42,7 +42,19 @@ Decisões e justificativas: [docs/decisions](docs/decisions).
    pnpm install
    ```
 
-4. Rode API e web com hot reload:
+4. Crie as tabelas e carregue os dados sintéticos de demonstração:
+
+   ```powershell
+   pnpm db:migrate
+   ```
+
+   ```powershell
+   pnpm db:seed
+   ```
+
+   Defina `SEED_DEMO_PASSWORD` no `.env` (mín. 12 caracteres) ou o seed gera uma senha aleatória e a exibe uma única vez. Usuários demo: `admin@`, `analista@`, `analista2@`, `operador@` e `operador.decisor@creditflow.test`. Detalhes em [docs/domain-model.md](docs/domain-model.md).
+
+5. Rode API e web com hot reload:
 
    ```powershell
    pnpm dev
@@ -56,15 +68,18 @@ Decisões e justificativas: [docs/decisions](docs/decisions).
 
 ## Comandos
 
-| Comando                                          | Descrição                                                       |
-| ------------------------------------------------ | --------------------------------------------------------------- |
-| `pnpm dev`                                       | API + web + shared em modo watch                                |
-| `pnpm lint`                                      | ESLint em todo o monorepo                                       |
-| `pnpm format` / `pnpm format:check`              | Prettier                                                        |
-| `pnpm typecheck`                                 | `tsc --noEmit` em todos os pacotes                              |
-| `pnpm test`                                      | Testes unitários (sem banco)                                    |
-| `pnpm --filter @creditflow/api test:integration` | Testes de integração contra `TEST_DATABASE_URL` (requer Docker) |
-| `pnpm build`                                     | Build de produção de todos os pacotes                           |
+| Comando                                          | Descrição                                                               |
+| ------------------------------------------------ | ----------------------------------------------------------------------- |
+| `pnpm dev`                                       | API + web + shared em modo watch                                        |
+| `pnpm lint`                                      | ESLint em todo o monorepo                                               |
+| `pnpm format` / `pnpm format:check`              | Prettier                                                                |
+| `pnpm typecheck`                                 | `tsc --noEmit` em todos os pacotes                                      |
+| `pnpm test`                                      | Testes unitários (sem banco)                                            |
+| `pnpm --filter @creditflow/api test:integration` | Testes de integração contra `TEST_DATABASE_URL` (requer Docker)         |
+| `pnpm db:migrate`                                | Aplica/cria migrations no banco de desenvolvimento                      |
+| `pnpm db:seed`                                   | Carrega dados sintéticos (exige banco vazio)                            |
+| `pnpm db:reset`                                  | **Apaga** o banco de desenvolvimento, reaplica migrations e roda o seed |
+| `pnpm build`                                     | Build de produção de todos os pacotes                                   |
 
 ## Estrutura
 
