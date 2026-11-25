@@ -1,12 +1,15 @@
 /// <reference types="vitest/config" />
-import { defaultClientConditions, defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { defaultClientConditions, defineConfig } from 'vite';
 
 const apiTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:3000';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     // Consume @creditflow/shared straight from its TypeScript sources (see its
     // package.json "source" export condition) so edits hot-reload without a build.
     conditions: ['source', ...defaultClientConditions],
@@ -21,7 +24,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test-setup.ts'],
+    setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    css: false,
   },
 });

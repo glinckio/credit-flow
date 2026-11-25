@@ -2,17 +2,17 @@
 
 Plataforma de gestão e análise **manual** de solicitações de crédito. Projeto de estudo: todos os dados são **sintéticos** e a decisão de crédito é sempre **humana**. Não há IA nesta fase (Parte A).
 
-> Status: **Parte A — Etapa 8 concluída** — backend completo (autenticação, RBAC, auditoria e sua consulta, usuários, clientes, solicitações, pendências, documentos, pareceres, indicadores, decisão humana e dashboard). Próximo: frontend. Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
+> Status: **Parte A — Etapa 9 concluída** — backend completo; frontend com login, troca de senha obrigatória, layout e menu por permissão. Próximo: telas de clientes e solicitações. Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
 
 ## Stack
 
-| Camada        | Tecnologia                                                       |
-| ------------- | ---------------------------------------------------------------- |
-| API           | NestJS 12 (ESM), TypeScript 6, Prisma 7 + PostgreSQL 17, Swagger |
-| Web           | React 19, Vite 8, TypeScript 6                                   |
-| Compartilhado | `packages/shared` (TypeScript puro)                              |
-| Testes        | Vitest (unit + integração com Postgres real)                     |
-| Qualidade     | ESLint, Prettier, `tsc --noEmit`, GitHub Actions                 |
+| Camada        | Tecnologia                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| API           | NestJS 12 (ESM), TypeScript 6, Prisma 7 + PostgreSQL 17, Swagger                                  |
+| Web           | React 19, Vite 8, TypeScript 6, React Router 8, TanStack Query, React Hook Form + Zod, Tailwind 4 |
+| Compartilhado | `packages/shared` (TypeScript puro)                                                               |
+| Testes        | Vitest (unit + integração com Postgres real)                                                      |
+| Qualidade     | ESLint, Prettier, `tsc --noEmit`, GitHub Actions                                                  |
 
 Decisões e justificativas: [docs/decisions](docs/decisions).
 
@@ -80,6 +80,12 @@ Decisões e justificativas: [docs/decisions](docs/decisions).
 | `pnpm db:seed`                                   | Carrega dados sintéticos (exige banco vazio)                            |
 | `pnpm db:reset`                                  | **Apaga** o banco de desenvolvimento, reaplica migrations e roda o seed |
 | `pnpm build`                                     | Build de produção de todos os pacotes                                   |
+
+## Frontend
+
+- Acesse http://localhost:5173 e entre com um usuário demo (senha do seed). Usuários com senha temporária são levados a `/trocar-senha`.
+- O menu mostra só as áreas permitidas ao papel; a API recusa o resto de qualquer forma.
+- Decisões em [ADR-0009](docs/decisions/ADR-0009-frontend-base.md).
 
 ## API
 
