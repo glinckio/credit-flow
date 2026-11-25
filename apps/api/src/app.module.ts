@@ -18,6 +18,7 @@ import { AccessGuard } from './modules/auth/access.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ApplicationsModule } from './modules/applications/applications.module.js';
 import { CustomersModule } from './modules/customers/customers.module.js';
+import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { LOGIN_THROTTLER } from './modules/auth/login-throttle.guard.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -62,6 +63,7 @@ import { UsersModule } from './modules/users/users.module.js';
     ApplicationsModule,
     DocumentsModule,
     AnalysisModule,
+    DashboardModule,
     HealthModule,
   ],
   providers: [

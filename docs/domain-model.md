@@ -69,6 +69,22 @@ Tabela única em [`packages/shared/src/application-state-machine.ts`](../package
 
 Calculados sobre os valores declarados, sem juros, sem score e sem efeito na decisão (fórmulas e aviso em [ADR-0008](decisions/ADR-0008-analise-e-decisao.md)): parcela simples, parcela ÷ renda, comprometimento total declarado e valor em meses de renda.
 
+## Métricas do dashboard (Etapa 8)
+
+Calculadas a cada requisição, sem cache nem números estáticos:
+
+| Métrica                | Definição                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| total / por status     | contagem de solicitações visíveis ao usuário (analista não conta rascunhos)                    |
+| aguardando análise     | `SUBMITTED`                                                                                    |
+| com pendências         | `PENDING_INFORMATION`; e, à parte, solicitações em andamento com ao menos uma pendência aberta |
+| aprovadas / reprovadas | `APPROVED` / `REJECTED`                                                                        |
+| abertura → decisão     | média de `decided_at − created_at` das decididas, em horas; `null` sem amostra                 |
+| envio → decisão        | média de `decided_at − submitted_at` das decididas, em horas; `null` sem amostra               |
+| atribuídas a mim       | analista: em análise ou com pendência sob sua responsabilidade                                 |
+
+Conferido contra SQL direto no banco de demonstração (valores idênticos).
+
 ## Exclusão, retenção e anonimização
 
 - Sem hard delete pela aplicação. Cliente é desativado (`INACTIVE`); documento é removido logicamente enquanto a solicitação é editável.
