@@ -1,6 +1,6 @@
 # Segurança — CreditFlow (Parte A)
 
-Estado atual: Etapa 6 (autenticação, autorização, auditoria, infraestrutura HTTP, clientes, solicitações, documentos). Atualizado a cada etapa.
+Estado atual: Etapa 7 (API completa do fluxo de crédito). Atualizado a cada etapa.
 
 ## Autenticação
 
@@ -57,7 +57,7 @@ JSON estruturado (pino). Nunca registram corpo nem query string. Redação de `c
 - Rede de segurança: chaves que pareçam segredo (`password`, `token`, `hash`, `secret`, `cookie`, `authorization`) são descartadas em qualquer profundidade.
 - Tabela append-only (trigger no banco).
 
-Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo), `application.created`, `application.updated` (campos alterados), `application.status_changed` (com motivo e transição), `application.assigned`, `issue.created`, `issue.resolved`, `document.uploaded` (metadados e SHA-256, sem nome original), `document.downloaded`, `document.validated`, `document.removed`.
+Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo), `application.created`, `application.updated` (campos alterados), `application.status_changed` (com motivo e transição), `application.assigned`, `issue.created`, `issue.resolved`, `document.uploaded` (metadados e SHA-256, sem nome original), `document.downloaded`, `document.validated`, `document.removed`, `review.created`, `decision.recorded` (resultado, justificativa e parecer referenciado).
 
 ## Limites conhecidos
 

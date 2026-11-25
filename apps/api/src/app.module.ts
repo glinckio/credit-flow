@@ -12,6 +12,7 @@ import { RequestContextMiddleware } from './common/request-context.middleware.js
 import { type Env, validateEnv } from './config/env.js';
 import { PrismaModule } from './infra/prisma/prisma.module.js';
 import { StorageModule } from './infra/storage/storage.module.js';
+import { AnalysisModule } from './modules/analysis/analysis.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AccessGuard } from './modules/auth/access.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -60,6 +61,7 @@ import { UsersModule } from './modules/users/users.module.js';
     CustomersModule,
     ApplicationsModule,
     DocumentsModule,
+    AnalysisModule,
     HealthModule,
   ],
   providers: [

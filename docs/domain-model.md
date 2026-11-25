@@ -65,6 +65,10 @@ Tabela única em [`packages/shared/src/application-state-machine.ts`](../package
 | CANCELLED                                    | reopen              | SUBMITTED                   | só admin (motivo)                            |
 | UNDER_REVIEW                                 | approve / reject    | APPROVED / REJECTED         | Etapa 7                                      |
 
+## Indicadores descritivos (Etapa 7)
+
+Calculados sobre os valores declarados, sem juros, sem score e sem efeito na decisão (fórmulas e aviso em [ADR-0008](decisions/ADR-0008-analise-e-decisao.md)): parcela simples, parcela ÷ renda, comprometimento total declarado e valor em meses de renda.
+
 ## Exclusão, retenção e anonimização
 
 - Sem hard delete pela aplicação. Cliente é desativado (`INACTIVE`); documento é removido logicamente enquanto a solicitação é editável.

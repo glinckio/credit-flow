@@ -2,7 +2,7 @@
 
 Plataforma de gestão e análise **manual** de solicitações de crédito. Projeto de estudo: todos os dados são **sintéticos** e a decisão de crédito é sempre **humana**. Não há IA nesta fase (Parte A).
 
-> Status: **Parte A — Etapa 6 concluída** (fundação, modelo de dados e seed, autenticação, RBAC, auditoria, usuários, clientes, solicitações com máquina de estados e pendências, documentos). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
+> Status: **Parte A — Etapa 7 concluída** (API completa do fluxo de crédito: autenticação, RBAC, auditoria, usuários, clientes, solicitações, pendências, documentos, pareceres, indicadores descritivos e decisão humana). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
 
 ## Stack
 
@@ -100,6 +100,7 @@ Contrato completo no Swagger (`/api/docs`). Convenções:
 | Transições       | `POST /applications/:id/` `submit`, `start-review`, `assign`, `release`, `request-information`, `resume`, `cancel`, `reopen` — regras em [ADR-0006](docs/decisions/ADR-0006-maquina-de-estados.md)                                    |
 | Pendências       | `GET/POST /applications/:id/issues`, `POST /issues/:id/resolve`                                                                                                                                                                       |
 | Documentos       | `GET/POST /applications/:id/documents` (multipart `file` + `type`), `GET /documents/:id/content` (download), `PATCH /documents/:id/validation`, `DELETE /documents/:id` — regras em [ADR-0007](docs/decisions/ADR-0007-documentos.md) |
+| Análise          | `GET /applications/:id/indicators`, `GET/POST /applications/:id/reviews` (pareceres), `GET/POST /applications/:id/decision` (decisão humana) — regras em [ADR-0008](docs/decisions/ADR-0008-analise-e-decisao.md)                     |
 
 Segurança em detalhe: [docs/security.md](docs/security.md).
 
