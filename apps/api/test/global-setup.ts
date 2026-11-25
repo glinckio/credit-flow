@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadTestEnv } from './load-test-env.js';
+import { TEST_STORAGE_DIR, loadTestEnv } from './load-test-env.js';
 
 /**
  * Runs once before the integration suite: applies pending migrations to the
@@ -15,4 +16,6 @@ export default function setup(): void {
     env: { ...process.env, DATABASE_URL },
     stdio: 'pipe',
   });
+  // Fresh, isolated document storage for this run (fixed path under var/).
+  rmSync(resolve(apiDir, '../..', TEST_STORAGE_DIR), { recursive: true, force: true });
 }

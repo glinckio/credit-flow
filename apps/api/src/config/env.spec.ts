@@ -13,6 +13,7 @@ describe('validateEnv', () => {
       COOKIE_SECURE: false,
       LOGIN_RATE_LIMIT: 5,
       LOG_LEVEL: 'info',
+      STORAGE_DIR: 'var/storage',
     });
   });
 
@@ -25,6 +26,18 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ DATABASE_URL: DB, NODE_ENV: 'production', COOKIE_SECURE: 'false' }),
     ).toThrow(/COOKIE_SECURE cannot be false in production/);
+  });
+
+  it('rejects storage paths that climb out with ..', () => {
+    expect(() => validateEnv({ DATABASE_URL: DB, STORAGE_DIR: '../outside' })).toThrow(
+      /STORAGE_DIR/,
+    );
+    expect(() => validateEnv({ DATABASE_URL: DB, STORAGE_DIR: 'var\\..\\..\\x' })).toThrow(
+      /STORAGE_DIR/,
+    );
+    for (const ok of ['var/docs', 'a/bc', 'var/storage..bak', 'C:\\data\\cf']) {
+      expect(validateEnv({ DATABASE_URL: DB, STORAGE_DIR: ok }).STORAGE_DIR).toBe(ok);
+    }
   });
 
   it('rejects an origin with a path', () => {

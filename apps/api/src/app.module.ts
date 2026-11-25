@@ -11,11 +11,13 @@ import { buildLoggerParams } from './common/logging.js';
 import { RequestContextMiddleware } from './common/request-context.middleware.js';
 import { type Env, validateEnv } from './config/env.js';
 import { PrismaModule } from './infra/prisma/prisma.module.js';
+import { StorageModule } from './infra/storage/storage.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AccessGuard } from './modules/auth/access.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ApplicationsModule } from './modules/applications/applications.module.js';
 import { CustomersModule } from './modules/customers/customers.module.js';
+import { DocumentsModule } from './modules/documents/documents.module.js';
 import { LOGIN_THROTTLER } from './modules/auth/login-throttle.guard.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -51,11 +53,13 @@ import { UsersModule } from './modules/users/users.module.js';
       }),
     }),
     PrismaModule,
+    StorageModule,
     AuditModule,
     AuthModule,
     UsersModule,
     CustomersModule,
     ApplicationsModule,
+    DocumentsModule,
     HealthModule,
   ],
   providers: [

@@ -2,7 +2,7 @@
 
 Plataforma de gestão e análise **manual** de solicitações de crédito. Projeto de estudo: todos os dados são **sintéticos** e a decisão de crédito é sempre **humana**. Não há IA nesta fase (Parte A).
 
-> Status: **Parte A — Etapa 5 concluída** (fundação, modelo de dados e seed, autenticação, RBAC, auditoria, usuários, clientes e solicitações com máquina de estados e pendências). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
+> Status: **Parte A — Etapa 6 concluída** (fundação, modelo de dados e seed, autenticação, RBAC, auditoria, usuários, clientes, solicitações com máquina de estados e pendências, documentos). Veja o plano em [docs/plano-parte-a.md](docs/plano-parte-a.md).
 
 ## Stack
 
@@ -90,15 +90,16 @@ Contrato completo no Swagger (`/api/docs`). Convenções:
 - Erros em `application/problem+json` (RFC 9457) com `type`, `title`, `status`, `errors[]` por campo e `requestId`.
 - Listagens: `?page=1&pageSize=20&sort=campo:asc|desc` → `{ data, meta: { page, pageSize, total } }`.
 
-| Disponível       | Rotas                                                                                                                                                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Saúde            | `GET /health`                                                                                                                                                                                      |
-| Autenticação     | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`                                                                                                              |
-| Usuários (admin) | `GET/POST /users`, `GET/PATCH /users/:id`, `POST /users/:id/deactivate`, `/activate`, `/reset-password`                                                                                            |
-| Clientes         | `GET/POST /customers` (filtros `q`, `type`, `status`), `GET/PATCH /customers/:id` (PATCH exige `version`)                                                                                          |
-| Solicitações     | `GET/POST /applications` (filtros `status` múltiplo, `assigneeId=me                                                                                                                                | none | uuid`, `customerId`, `productType`, `createdFrom/To`, `q`código ou cliente),`GET/PATCH /applications/:id`, `GET /applications/:id/status-history` |
-| Transições       | `POST /applications/:id/` `submit`, `start-review`, `assign`, `release`, `request-information`, `resume`, `cancel`, `reopen` — regras em [ADR-0006](docs/decisions/ADR-0006-maquina-de-estados.md) |
-| Pendências       | `GET/POST /applications/:id/issues`, `POST /issues/:id/resolve`                                                                                                                                    |
+| Disponível       | Rotas                                                                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Saúde            | `GET /health`                                                                                                                                                                                                                         |
+| Autenticação     | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`                                                                                                                                                 |
+| Usuários (admin) | `GET/POST /users`, `GET/PATCH /users/:id`, `POST /users/:id/deactivate`, `/activate`, `/reset-password`                                                                                                                               |
+| Clientes         | `GET/POST /customers` (filtros `q`, `type`, `status`), `GET/PATCH /customers/:id` (PATCH exige `version`)                                                                                                                             |
+| Solicitações     | `GET/POST /applications` (filtros `status` múltiplo, `assigneeId=me                                                                                                                                                                   | none | uuid`, `customerId`, `productType`, `createdFrom/To`, `q`código ou cliente),`GET/PATCH /applications/:id`, `GET /applications/:id/status-history` |
+| Transições       | `POST /applications/:id/` `submit`, `start-review`, `assign`, `release`, `request-information`, `resume`, `cancel`, `reopen` — regras em [ADR-0006](docs/decisions/ADR-0006-maquina-de-estados.md)                                    |
+| Pendências       | `GET/POST /applications/:id/issues`, `POST /issues/:id/resolve`                                                                                                                                                                       |
+| Documentos       | `GET/POST /applications/:id/documents` (multipart `file` + `type`), `GET /documents/:id/content` (download), `PATCH /documents/:id/validation`, `DELETE /documents/:id` — regras em [ADR-0007](docs/decisions/ADR-0007-documentos.md) |
 
 Segurança em detalhe: [docs/security.md](docs/security.md).
 

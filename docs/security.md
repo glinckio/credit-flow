@@ -1,6 +1,6 @@
 # Segurança — CreditFlow (Parte A)
 
-Estado atual: Etapa 5 (autenticação, autorização, auditoria, infraestrutura HTTP, clientes, solicitações). Atualizado a cada etapa.
+Estado atual: Etapa 6 (autenticação, autorização, auditoria, infraestrutura HTTP, clientes, solicitações, documentos). Atualizado a cada etapa.
 
 ## Autenticação
 
@@ -37,6 +37,15 @@ Cookie `SameSite=Lax` **+** cabeçalho obrigatório `X-Requested-With` em métod
 - Erros em RFC 9457 (`application/problem+json`) com `requestId`; erros inesperados nunca expõem stack, SQL ou mensagens internas.
 - `X-Request-Id` aceito se bem-formado (8–64 `[A-Za-z0-9-]`), senão gerado; devolvido na resposta e gravado na auditoria.
 
+## Documentos
+
+Detalhes em [ADR-0007](decisions/ADR-0007-documentos.md):
+
+- Allowlist PDF/PNG/JPEG por **assinatura do conteúdo**; extensão precisa corresponder; MIME do navegador ignorado; 10 MB.
+- Armazenados fora de pasta pública, com chave UUID opaca, sem extensão, permissão 0600; nenhum dado do usuário compõe o caminho.
+- Nunca executados nem servidos inline: download autorizado com `attachment`, `nosniff`, `no-store` e CSP `sandbox`; cada download é auditado.
+- Sem antivírus no MVP (limite conhecido).
+
 ## Logs
 
 JSON estruturado (pino). Nunca registram corpo nem query string. Redação de `cookie`, `authorization`, `set-cookie`, senhas, hashes, tokens, `documentNumber`, `email`, `phone`. Health check não é logado. Verificado manualmente com o servidor real: nenhum e-mail, cookie, senha ou hash nos logs.
@@ -48,7 +57,7 @@ JSON estruturado (pino). Nunca registram corpo nem query string. Redação de `c
 - Rede de segurança: chaves que pareçam segredo (`password`, `token`, `hash`, `secret`, `cookie`, `authorization`) são descartadas em qualquer profundidade.
 - Tabela append-only (trigger no banco).
 
-Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo), `application.created`, `application.updated` (campos alterados), `application.status_changed` (com motivo e transição), `application.assigned`, `issue.created`, `issue.resolved`.
+Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo), `application.created`, `application.updated` (campos alterados), `application.status_changed` (com motivo e transição), `application.assigned`, `issue.created`, `issue.resolved`, `document.uploaded` (metadados e SHA-256, sem nome original), `document.downloaded`, `document.validated`, `document.removed`.
 
 ## Limites conhecidos
 

@@ -15,6 +15,8 @@ export interface Env {
   /** Login attempts allowed per minute per IP + e-mail. */
   LOGIN_RATE_LIMIT: number;
   LOG_LEVEL: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
+  /** Document storage directory, absolute or relative to the repository root. */
+  STORAGE_DIR: string;
 }
 
 const LOG_LEVELS: Env['LOG_LEVEL'][] = [
@@ -85,6 +87,11 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     errors.push(`LOG_LEVEL must be one of ${LOG_LEVELS.join('|')}`);
   }
 
+  const storageDir = String(raw.STORAGE_DIR ?? 'var/storage').trim();
+  if (!storageDir || storageDir.split(/[\\/]/).includes('..')) {
+    errors.push('STORAGE_DIR must be a directory path without ".." segments');
+  }
+
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration:\n - ${errors.join('\n - ')}`);
   }
@@ -98,5 +105,6 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     COOKIE_SECURE: cookieSecure as boolean,
     LOGIN_RATE_LIMIT: loginRateLimit,
     LOG_LEVEL: logLevel as Env['LOG_LEVEL'],
+    STORAGE_DIR: storageDir,
   };
 }
