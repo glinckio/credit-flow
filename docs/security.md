@@ -1,6 +1,6 @@
 # Segurança — CreditFlow (Parte A)
 
-Estado atual: Etapa 8 (backend completo). Atualizado a cada etapa.
+Estado atual: Parte A concluída (backend, frontend e testes ponta a ponta).
 
 ## Autenticação
 
@@ -59,6 +59,10 @@ JSON estruturado (pino). Nunca registram corpo nem query string. Redação de `c
 - Consulta apenas por administradores (`audit.read`), paginada e filtrável; ids `BIGINT` expostos como string.
 
 Eventos atuais: `auth.login_succeeded`, `auth.login_failed` (com motivo), `auth.logout`, `auth.password_changed`, `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.password_reset`, `customer.created` (só tipo e status — os dados pessoais ficam no próprio registro), `customer.updated` (somente os campos alterados, com valor anterior e novo), `application.created`, `application.updated` (campos alterados), `application.status_changed` (com motivo e transição), `application.assigned`, `issue.created`, `issue.resolved`, `document.uploaded` (metadados e SHA-256, sem nome original), `document.downloaded`, `document.validated`, `document.removed`, `review.created`, `decision.recorded` (resultado, justificativa e parecer referenciado).
+
+## Verificação
+
+Além das suítes de integração, o teste ponta a ponta confirma no navegador real que um operador autenticado recebe 403 ao chamar diretamente rotas de administração e de decisão, e que uma requisição mutável sem o cabeçalho CSRF é recusada mesmo com sessão válida.
 
 ## Limites conhecidos
 

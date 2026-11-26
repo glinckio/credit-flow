@@ -1,6 +1,6 @@
 # CreditFlow — Plano de implementação da Parte A (projeto-base)
 
-**Status:** APROVADO em 25/11/2026 com os padrões propostos para todos os pontos em aberto (seção 6).
+**Status:** APROVADO em 25/11/2026 com os padrões propostos para todos os pontos em aberto (seção 6). **CONCLUÍDO em 26/11/2026** — Etapas 1–13 entregues; a etapa opcional 14 (anonimização) não foi executada. Verificação dos critérios em [acceptance-checklist.md](acceptance-checklist.md).
 **Data:** 25/11/2026
 
 > **Atualização (Etapa 1):** NestJS 12 é ESM-only; API passou a usar ESM + Vitest, TypeScript fixado em 6.0.x e Prisma 7.10.1 estável. Ver [ADR-0002](decisions/ADR-0002-esm-vitest-versoes.md). Substitui D24 (Jest) e resolve R1.
@@ -434,3 +434,23 @@ Aceite: todos os critérios do §9 verificados e documentados; `pnpm lint && pnp
 ### Etapa 14 (opcional, se aprovada) — Anonimização de cliente
 
 Escopo: endpoint ADMIN que substitui PII por marcadores, remove arquivos do storage, mantém agregados e auditoria.
+
+---
+
+## 8. Execução (registro)
+
+| Etapa                                     | Commit  | Desvios relevantes em relação ao plano                                                                                                    |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Fundação                                | 2ccaab4 | NestJS 12 é ESM-only → Vitest no lugar de Jest; TS fixado em 6.0; Prisma 7 estável ([ADR-0002](decisions/ADR-0002-esm-vitest-versoes.md)) |
+| 2 Esquema e seed                          | 4dda03f | Código da solicitação derivado (não armazenado); 5 usuários demo ([ADR-0004](decisions/ADR-0004-integridade-no-banco-e-seed.md))          |
+| 3 Auth e RBAC                             | 548b8ee | CSRF como guard; rota `change-password` ([ADR-0005](decisions/ADR-0005-autenticacao-autorizacao.md))                                      |
+| 4 Clientes                                | 28bc946 | Auditoria de edição só com campos alterados                                                                                               |
+| 5 Solicitações                            | aa901a1 | `assign` também em pendência; `release` por responsável ou admin ([ADR-0006](decisions/ADR-0006-maquina-de-estados.md))                   |
+| 6 Documentos                              | 75312a7 | Detecção por assinatura própria (sem `file-type`) ([ADR-0007](decisions/ADR-0007-documentos.md))                                          |
+| 7 Análise e decisão                       | fe76772 | — ([ADR-0008](decisions/ADR-0008-analise-e-decisao.md))                                                                                   |
+| 8 Dashboard e auditoria                   | 259514d | —                                                                                                                                         |
+| 9 Front base                              | 39a635a | Componentes estilo shadcn escritos no repo (sem CLI) ([ADR-0009](decisions/ADR-0009-frontend-base.md))                                    |
+| 10 Clientes e solicitações (front)        | abeed58 | Carregamento de telas sob demanda; `WEB_PORT` configurável                                                                                |
+| 11 Análise e decisão (front)              | 8a49859 | Abas no detalhe da solicitação                                                                                                            |
+| 12 Dashboard, usuários, auditoria (front) | 7b00a85 | —                                                                                                                                         |
+| 13 E2E, CI, docs                          | (este)  | Banco próprio para E2E e navegador local sem download ([ADR-0010](decisions/ADR-0010-testes-e2e.md))                                      |

@@ -1,5 +1,6 @@
 import { Permission } from '@creditflow/shared';
 import type { RouteObject } from 'react-router';
+import { FullPageSpinner } from '@/components/ui/spinner';
 import { AppLayout } from './AppLayout';
 import { CHANGE_PASSWORD_PATH, RequireAuth, RequirePermission } from './guards';
 import { RouteErrorBoundary } from './pages/ErrorState';
@@ -45,10 +46,17 @@ const lazy = {
 
 /** Route table, shared by the browser router and tests (memory router). */
 export const routes: RouteObject[] = [
-  { path: '/login', lazy: lazy.login, errorElement: <RouteErrorBoundary /> },
+  {
+    path: '/login',
+    lazy: lazy.login,
+    errorElement: <RouteErrorBoundary />,
+    // Shown while a lazy route module downloads on the very first navigation.
+    hydrateFallbackElement: <FullPageSpinner />,
+  },
   {
     element: <RequireAuth />,
     errorElement: <RouteErrorBoundary />,
+    hydrateFallbackElement: <FullPageSpinner />,
     children: [
       {
         element: <AppLayout />,
