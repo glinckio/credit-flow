@@ -1,0 +1,33 @@
+# Checklist de aceite — Parte A (roadmap §9)
+
+Verificação feita em 26/11/2026 na branch `feat/parte-a`. Cada critério aponta a evidência executável.
+
+| #   | Critério do roadmap                                                                 | Situação | Evidência                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Um desenvolvedor consegue subir a aplicação localmente seguindo o README            | ✔        | [README](../README.md) "Executar localmente"; executado a cada etapa (Postgres via Compose, migrations, seed, `pnpm dev`, health 200 pelo proxy)                                                                                                                                                     |
+| 2   | Um usuário consegue autenticar-se                                                   | ✔        | `apps/api/test/integration/auth.int-spec.ts`; `apps/web/src/features/auth/auth-pages.test.tsx`; E2E `e2e/tests/main-flow.spec.ts` (login dos três papéis)                                                                                                                                            |
+| 3   | Permissões de administrador, analista e operador aplicadas no backend               | ✔        | Matriz testada combinação a combinação (`packages/shared/src/permissions.spec.ts`); `AccessGuard` default deny + teste que varre todas as rotas (`routes.int-spec.ts`); 403 por papel em todas as suítes de integração; E2E "permissions are enforced by the backend" (chamadas diretas à API → 403) |
+| 4   | Um operador consegue cadastrar cliente e solicitação                                | ✔        | `customers.int-spec.ts`, `applications.int-spec.ts`; E2E passos 1–2                                                                                                                                                                                                                                  |
+| 5   | Documentos sintéticos podem ser anexados e consultados com autorização              | ✔        | `documents.int-spec.ts` (executável renomeado, HTML, extensão divergente, >10 MB, nome com `../`, download como anexo, 404 para analista em rascunho); E2E passos 3 e 5                                                                                                                              |
+| 6   | Um analista consegue revisar uma solicitação, registrar pendências e emitir parecer | ✔        | `applications.int-spec.ts` (fluxo de revisão), `analysis.int-spec.ts`; `apps/web/src/features/analysis/analysis.test.tsx`; E2E passos 4–6                                                                                                                                                            |
+| 7   | Um usuário autorizado consegue registrar uma decisão humana com justificativa       | ✔        | `analysis.int-spec.ts` (parecer obrigatório, pendência bloqueia aprovação, justificativa, papéis, decisão única sob concorrência); E2E passo 7 (confirmação explícita "decisão humana")                                                                                                              |
+| 8   | Histórico e auditoria registram as ações relevantes                                 | ✔        | Auditoria transacional em todos os módulos; tabelas append-only por trigger (`schema.int-spec.ts`); `dashboard-audit.int-spec.ts`; E2E passo 8 (histórico na tela e "Decisão registrada" na auditoria)                                                                                               |
+| 9   | O dashboard apresenta dados reais do banco                                          | ✔        | `dashboard-audit.int-spec.ts` (valores calculados à mão); conferência manual API × SQL direto (Etapas 8 e 12); E2E passo 9 (aprovadas +1 após a decisão)                                                                                                                                             |
+| 10  | O fluxo principal tem testes automatizados                                          | ✔        | E2E Playwright cobrindo o §5 inteiro + integração por módulo ([ADR-0010](decisions/ADR-0010-testes-e2e.md))                                                                                                                                                                                          |
+| 11  | Lint, typecheck, testes e build passam                                              | ✔ local  | `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e` — todos verdes localmente. CI configurado (`.github/workflows/ci.yml`, jobs `quality` e `e2e`), **ainda não executado no GitHub**                                            |
+| 12  | Não há dependência de LLM, agente ou API de IA                                      | ✔        | Nenhuma dependência de IA no `pnpm-lock.yaml`; nenhuma chamada externa no código; decisão sempre humana (diálogo com confirmação; API sem aprovação automática)                                                                                                                                      |
+
+## Números da verificação final
+
+| Suíte                            | Resultado                            |
+| -------------------------------- | ------------------------------------ |
+| Unitários (shared + api + web)   | 148 + 31 + 64 = **243**              |
+| Integração (API + Postgres real) | **115**                              |
+| Ponta a ponta (Playwright)       | **2** (fluxo principal + permissões) |
+
+## Itens conhecidos fora do escopo do MVP
+
+- Sem antivírus/sanitização de PDF (mitigado: nunca servido inline, CSP sandbox) — [ADR-0007](decisions/ADR-0007-documentos.md).
+- Sem MFA, sem bloqueio de conta (apenas rate limit), recuperação de senha via admin — [security.md](security.md).
+- Anonimização de cliente (etapa opcional 14) não implementada; estratégia documentada em [domain-model.md](domain-model.md).
+- Aviso de depreciação do driver `pg` vindo do Prisma 7.10.1 (inofensivo até o `pg` 9) — [ADR-0006](decisions/ADR-0006-maquina-de-estados.md).

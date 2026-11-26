@@ -1,0 +1,20 @@
+{
+  "name": "@creditflow/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests of the main credit flow (Playwright), against an isolated API + web + test database.",
+  "scripts": {
+    "test:e2e": "pnpm --filter @creditflow/shared build && pnpm --filter @creditflow/api build && playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@creditflow/shared": "workspace:*",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "pg": "^8.23.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  }
+}

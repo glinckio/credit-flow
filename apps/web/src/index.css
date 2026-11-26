@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens (shadcn/ui-style CSS variables). Light theme only in the MVP.
+ * Components reference semantic names (primary, muted, destructive...), never raw colours.
+ */
+@theme {
+  --color-background: oklch(0.985 0.002 247);
+  --color-foreground: oklch(0.21 0.02 257);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.21 0.02 257);
+  --color-muted: oklch(0.96 0.004 247);
+  --color-muted-foreground: oklch(0.52 0.02 257);
+  --color-border: oklch(0.91 0.005 247);
+  --color-input: oklch(0.88 0.006 247);
+  --color-ring: oklch(0.55 0.15 255);
+  --color-primary: oklch(0.45 0.15 255);
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-secondary: oklch(0.95 0.01 255);
+  --color-secondary-foreground: oklch(0.3 0.08 255);
+  --color-accent: oklch(0.95 0.01 255);
+  --color-accent-foreground: oklch(0.25 0.06 255);
+  --color-destructive: oklch(0.55 0.2 27);
+  --color-destructive-foreground: oklch(0.99 0 0);
+  --color-success: oklch(0.52 0.13 155);
+  --color-warning: oklch(0.7 0.15 75);
+
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
