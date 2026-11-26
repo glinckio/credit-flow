@@ -14,7 +14,24 @@ describe('validateEnv', () => {
       LOGIN_RATE_LIMIT: 5,
       LOG_LEVEL: 'info',
       STORAGE_DIR: 'var/storage',
+      AI_PROVIDER: 'disabled',
+      AI_MODEL: 'claude-haiku-5-5',
+      AI_WORKER_POLL_MS: 2000,
+      AI_LEASE_MS: 300_000,
+      AI_RETENTION_DAYS: 90,
+      AI_MAX_DOCUMENTS_PER_RUN: 15,
     });
+  });
+
+  it('keeps AI disabled until the provider exists and only allows listed models', () => {
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'anthropic' })).toThrow(/stage B3/);
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_MODEL: 'claude-opus-5-5' })).toThrow(
+      /AI_MODEL/,
+    );
+    expect(validateEnv({ DATABASE_URL: DB, NODE_ENV: 'test' }).AI_WORKER_POLL_MS).toBe(0);
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_RETENTION_DAYS: '0' })).toThrow(
+      /AI_RETENTION_DAYS/,
+    );
   });
 
   it('silences logs by default in tests', () => {

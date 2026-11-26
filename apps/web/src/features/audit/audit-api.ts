@@ -43,6 +43,7 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   ApplicationIssue: 'Pendência',
   CreditReview: 'Parecer',
   CreditDecision: 'Decisão',
+  AiAnalysisRun: 'Análise de IA',
 };
 
 /** Human labels for audit actions; unknown actions fall back to the raw code. */
@@ -70,6 +71,10 @@ export const ACTION_LABELS: Record<string, string> = {
   'document.removed': 'Documento removido',
   'review.created': 'Parecer registrado',
   'decision.recorded': 'Decisão registrada',
+  'ai_analysis.requested': 'Análise de IA solicitada',
+  'ai_analysis.completed': 'Análise de IA concluída',
+  'ai_analysis.failed': 'Análise de IA com falha',
+  'ai_analysis.purged': 'Análise de IA expurgada (retenção)',
 };
 
 /** Action filter presets (exact action or "prefix." groups). */
@@ -83,6 +88,7 @@ export const ACTION_FILTERS: [string, string][] = [
   ['issue.', 'Pendências'],
   ['review.created', 'Pareceres'],
   ['decision.recorded', 'Decisões'],
+  ['ai_analysis.', 'Análises de IA'],
   ['auth.login_failed', 'Falhas de login'],
 ];
 

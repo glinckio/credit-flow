@@ -69,3 +69,13 @@ Além das suítes de integração, o teste ponta a ponta confirma no navegador r
 - Sem bloqueio de conta após N falhas (só rate limit), sem MFA.
 - Rate limit em memória: vale por instância da API (suficiente para o MVP de instância única).
 - CSP padrão do helmet também se aplica ao Swagger UI (verificado: renderiza).
+
+## IA de apoio (Parte B)
+
+Decisões em [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md); estado atual em [plano-parte-b.md](plano-parte-b.md).
+
+- A IA não altera solicitação, documentos, pareceres nem decisões; nenhuma rota de IA escreve fora das tabelas `ai_*`.
+- Leitura: `ai_analysis.read` (analista, admin, operador com `canDecide`) + mesma visibilidade da solicitação (rascunho oculto → 404). Reprocessar: `ai_analysis.request` + analista responsável.
+- Conteúdo de documento é dado não confiável: chamada sem ferramentas, saída validada por código, valores só viram fato com evidência verificada; documento com texto dirigido a uma IA não gera fato.
+- Logs e auditoria nunca contêm valores extraídos nem trechos de documento; o expurgo remove o conteúdo após `AI_RETENTION_DAYS`.
+- Somente dados sintéticos no piloto. `AI_PROVIDER` só aceita `disabled` até a etapa B3.

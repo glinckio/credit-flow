@@ -3,3 +3,4 @@ export * from './extraction.js';
 export * from './normalize.js';
 export * from './evidence.js';
 export * from './injection.js';
+export * from './run.js';

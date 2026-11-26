@@ -27,6 +27,8 @@ const EXPECTED: Record<Permission, Record<Role, boolean>> = {
   'document.read': { ADMIN: true, ANALYST: true, OPERATOR: true },
   'document.upload': { ADMIN: true, ANALYST: false, OPERATOR: true },
   'document.validate': { ADMIN: false, ANALYST: true, OPERATOR: false },
+  'ai_analysis.read': { ADMIN: true, ANALYST: true, OPERATOR: false },
+  'ai_analysis.request': { ADMIN: false, ANALYST: true, OPERATOR: false },
 };
 
 describe('permission matrix', () => {
@@ -51,6 +53,15 @@ describe('permission matrix', () => {
     ).toBe(true);
     expect(
       hasPermission({ role: Role.OPERATOR, canDecide: false }, Permission.APPLICATION_DECIDE),
+    ).toBe(false);
+  });
+
+  it('lets an operator read AI analyses only with the decide grant, never request them', () => {
+    const granted = { role: Role.OPERATOR, canDecide: true };
+    expect(hasPermission(granted, Permission.AI_ANALYSIS_READ)).toBe(true);
+    expect(hasPermission(granted, Permission.AI_ANALYSIS_REQUEST)).toBe(false);
+    expect(
+      hasPermission({ role: Role.OPERATOR, canDecide: false }, Permission.AI_ANALYSIS_READ),
     ).toBe(false);
   });
 

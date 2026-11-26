@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import {
   ApplicationAction,
   ApplicationStatus,
@@ -109,14 +109,48 @@ interface TransitionOptions {
   afterward?: (app: ApplicationWithRefs, tx: Tx) => Promise<void>;
 }
 
+/** Published after a status change has been COMMITTED. */
+export interface StatusChangeEvent {
+  applicationId: string;
+  from: ApplicationStatus;
+  to: ApplicationStatus;
+  action: ApplicationAction;
+  actorId: string;
+}
+
+/**
+ * Listener of committed status changes (e.g. the AI module queues its first
+ * analysis). Runs after the transaction: a failing listener is logged and can
+ * never undo or block the human transition.
+ */
+export type StatusChangeListener = (event: StatusChangeEvent) => Promise<void>;
+
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
+  private readonly statusListeners: StatusChangeListener[] = [];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly applications: ApplicationsRepository,
     private readonly customers: CustomersService,
     private readonly audit: AuditService,
   ) {}
+
+  /** Registers a listener of committed status changes (module boundary: no reverse import). */
+  onStatusChange(listener: StatusChangeListener): void {
+    this.statusListeners.push(listener);
+  }
+
+  private async notifyStatusChange(event: StatusChangeEvent): Promise<void> {
+    for (const listener of this.statusListeners) {
+      try {
+        await listener(event);
+      } catch (err) {
+        this.logger.error({ err, applicationId: event.applicationId }, 'Status listener failed');
+      }
+    }
+  }
 
   // ───────────────────────────── visibility ─────────────────────────────
 
@@ -383,7 +417,8 @@ export class ApplicationsService {
       throw fieldValidationError('reason', 'Informe o motivo');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    let changed: StatusChangeEvent | null = null;
+    const result = await this.prisma.$transaction(async (tx) => {
       const app = await this.getVisibleOrThrow(actor, id, tx);
       const from = app.status;
       if (!canTransition(from, action)) {
@@ -432,11 +467,14 @@ export class ApplicationsService {
           after: { status: to, ...(opts.reason ? { reason: opts.reason } : {}) },
           metadata: { transition: action },
         });
+        changed = { applicationId: id, from, to, action, actorId: actor.id };
       }
       await opts.afterward?.(app, tx);
 
       return toApplicationDto((await this.applications.findById(id, tx))!, actor);
     });
+    if (changed) await this.notifyStatusChange(changed);
+    return result;
   }
 
   // ───────────────────────────── helpers ─────────────────────────────

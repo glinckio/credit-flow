@@ -53,5 +53,7 @@ export type ExtractorResult =
 export interface DocumentExtractor {
   /** Model identifier recorded with every run. */
   readonly model: string;
+  /** Version of the prompt/adapter, recorded with every run ("none" when no prompt is used). */
+  readonly promptVersion: string;
   extract(request: ExtractionRequest): Promise<ExtractorResult>;
 }

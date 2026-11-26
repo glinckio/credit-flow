@@ -67,3 +67,26 @@ pnpm --filter @creditflow/api eval:ai        # roda a avaliação com o extrator
 ```
 
 Rodadas com o modelo real (B3+) só com autorização explícita a cada rodada, apresentando antes os resultados atuais.
+
+## B1 — entregue
+
+**Banco** (migration `ai_analysis`):
+
+- `ai_analysis_runs`: uma execução por pedido; `status` `QUEUED → RUNNING → SUCCEEDED | PARTIAL | FAILED`; gatilho (`AUTO_FIRST_REVIEW` | `MANUAL`); impressão digital da entrada; modelo e versões; tokens, custo (B3) e latência; lease do worker; `purged_at`. Índice único parcial: **no máximo uma execução ativa por solicitação**. CHECKs: execução terminada tem `finished_at`; `FAILED` tem `error_code`.
+- `ai_document_extractions`: resultado por documento (status, tipo detectado, camada de texto, alerta de injection com ids dos padrões, campos com evidência). **Write-once** (trigger proíbe `UPDATE`); `DELETE` só pelo expurgo.
+
+**Fluxo:**
+
+- **Disparo automático** só na **primeira** entrada da solicitação em `UNDER_REVIEW` (via notificação pós-commit do `ApplicationsService`: uma falha da IA nunca desfaz nem bloqueia a transição humana).
+- **Reprocessar** (`POST /applications/:id/ai-analyses`, 202): analista responsável, solicitação em `UNDER_REVIEW`, nenhuma execução ativa (`409 analysis-in-progress`). Sem mudança nos documentos desde a última análise → `409 analysis-up-to-date`; com `{"force": true}` refaz.
+- **Worker** no processo da API, Postgres como fila (`FOR UPDATE SKIP LOCKED`), um documento por vez. **Sem retentativa automática**: execução com lease vencido vira `FAILED/interrupted`. Falha de provedor por documento → `PARTIAL`; todos falharam → `FAILED/all-documents-failed`. Arquivo que não bate com o sha256 → `FAILED/document-integrity`.
+- **Expurgo** (`AI_RETENTION_DAYS`, padrão 90): apaga as extrações; a execução mantém só metadados e a auditoria registra `ai_analysis.purged` sem valores. Roda mesmo com a IA desativada.
+- **Desatualização** (`stale`): a impressão digital (sha256 dos documentos + modelo + versões) difere da atual. A versão da solicitação não entra (muda a cada transição); a comparação com os dados declarados (B2) é recalculada na leitura.
+
+**API:** `GET /applications/:id/ai-analyses`, `POST /applications/:id/ai-analyses`, `GET /ai-analyses/:runId`. Permissões `ai_analysis.read` (analista, admin, operador com `canDecide`) e `ai_analysis.request` (analista; o serviço exige ser o responsável).
+
+**Auditoria:** `ai_analysis.requested`, `.completed`, `.failed`, `.purged` — somente metadados (status, modelo, contagens, tokens), nunca valores extraídos.
+
+**Configuração:** `AI_PROVIDER` (só `disabled` até a B3), `AI_MODEL` (lista fechada), `AI_WORKER_POLL_MS`, `AI_LEASE_MS`, `AI_RETENTION_DAYS`, `AI_MAX_DOCUMENTS_PER_RUN`. Com a IA desativada nada é enfileirado e o pedido manual responde `503 ai-disabled`.
+
+**Limite conhecido até a B3:** sem biblioteca de PDF, o leitor padrão informa "sem camada de texto", então nenhum valor é aceito como fato em produção — comportamento conservador e intencional. Os testes usam um leitor dos PDFs sintéticos.

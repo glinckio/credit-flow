@@ -1,3 +1,5 @@
+import { ALLOWED_AI_MODELS, type AllowedAiModel } from '@creditflow/shared';
+
 /**
  * Environment validation. The API refuses to start with missing or malformed
  * configuration (fail fast) instead of failing later on first use.
@@ -17,6 +19,21 @@ export interface Env {
   LOG_LEVEL: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   /** Document storage directory, absolute or relative to the repository root. */
   STORAGE_DIR: string;
+  /**
+   * AI-assisted analysis provider (ADR-0011). "disabled": no model is called and
+   * no run is queued. "anthropic" arrives in stage B3.
+   */
+  AI_PROVIDER: 'disabled';
+  /** Model recorded with every run; must be in ALLOWED_AI_MODELS. */
+  AI_MODEL: AllowedAiModel;
+  /** Worker polling interval; 0 disables the background worker (tests drive it explicitly). */
+  AI_WORKER_POLL_MS: number;
+  /** A RUNNING run whose lease expired is marked FAILED (interrupted), never retried. */
+  AI_LEASE_MS: number;
+  /** Extracted content is purged after this many days. */
+  AI_RETENTION_DAYS: number;
+  /** Cost/abuse guard: a run over more documents fails without calling the model. */
+  AI_MAX_DOCUMENTS_PER_RUN: number;
 }
 
 const LOG_LEVELS: Env['LOG_LEVEL'][] = [
@@ -92,6 +109,30 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     errors.push('STORAGE_DIR must be a directory path without ".." segments');
   }
 
+  const aiProvider = String(raw.AI_PROVIDER ?? 'disabled').trim() || 'disabled';
+  if (aiProvider !== 'disabled') {
+    errors.push(
+      aiProvider === 'anthropic'
+        ? 'AI_PROVIDER=anthropic is only available from Part B stage B3'
+        : 'AI_PROVIDER must be "disabled"',
+    );
+  }
+  const aiModel = String(raw.AI_MODEL ?? ALLOWED_AI_MODELS[0]).trim() || ALLOWED_AI_MODELS[0];
+  if (!(ALLOWED_AI_MODELS as readonly string[]).includes(aiModel)) {
+    errors.push(`AI_MODEL must be one of ${ALLOWED_AI_MODELS.join('|')}`);
+  }
+  const intIn = (name: string, fallback: number, min: number, max: number): number => {
+    const v = parsePositiveInt(raw[name], fallback);
+    if (!Number.isInteger(v) || v < min || v > max) {
+      errors.push(`${name} must be an integer between ${min} and ${max}`);
+    }
+    return v;
+  };
+  const aiWorkerPollMs = intIn('AI_WORKER_POLL_MS', nodeEnv === 'test' ? 0 : 2000, 0, 60_000);
+  const aiLeaseMs = intIn('AI_LEASE_MS', 300_000, 10_000, 3_600_000);
+  const aiRetentionDays = intIn('AI_RETENTION_DAYS', 90, 1, 3650);
+  const aiMaxDocuments = intIn('AI_MAX_DOCUMENTS_PER_RUN', 15, 1, 30);
+
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration:\n - ${errors.join('\n - ')}`);
   }
@@ -106,5 +147,11 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     LOGIN_RATE_LIMIT: loginRateLimit,
     LOG_LEVEL: logLevel as Env['LOG_LEVEL'],
     STORAGE_DIR: storageDir,
+    AI_PROVIDER: 'disabled',
+    AI_MODEL: aiModel as AllowedAiModel,
+    AI_WORKER_POLL_MS: aiWorkerPollMs,
+    AI_LEASE_MS: aiLeaseMs,
+    AI_RETENTION_DAYS: aiRetentionDays,
+    AI_MAX_DOCUMENTS_PER_RUN: aiMaxDocuments,
   };
 }

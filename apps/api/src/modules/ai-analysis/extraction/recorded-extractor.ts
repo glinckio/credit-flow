@@ -19,6 +19,7 @@ export const RECORDED_MODEL = 'recorded';
  */
 export class RecordedExtractor implements DocumentExtractor {
   readonly model = RECORDED_MODEL;
+  readonly promptVersion = 'none';
 
   constructor(private readonly recordings: ReadonlyMap<string, RecordedResponse>) {}
 
