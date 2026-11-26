@@ -19,6 +19,7 @@
     "src",
     "test",
     "prisma",
+    "evals",
     "prisma.config.ts",
     "vitest.config.ts",
     "vitest.integration.config.ts"

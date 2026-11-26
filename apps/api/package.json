@@ -15,7 +15,9 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed/index.ts",
-    "db:reset": "prisma migrate reset --force && tsx prisma/seed/index.ts"
+    "db:reset": "prisma migrate reset --force && tsx prisma/seed/index.ts",
+    "eval:dataset": "tsx evals/cli/generate-dataset.ts",
+    "eval:ai": "tsx evals/cli/run-eval.ts"
   },
   "dependencies": {
     "@creditflow/shared": "workspace:*",

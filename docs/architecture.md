@@ -73,4 +73,4 @@ Ver [README](../README.md). Resumo: `docker compose up -d --wait` → `pnpm inst
 
 ## Evolução (Parte B)
 
-Pontos de extensão já existentes, sem implementar nada de IA: a porta `DocumentStorage` (troca por S3/MinIO), o pipeline único de transições (um futuro módulo não altera status por fora), a auditoria transacional e as permissões por rota. A Parte B só começa com autorização explícita.
+Pontos de extensão já existentes, sem implementar nada de IA: a porta `DocumentStorage` (troca por S3/MinIO), o pipeline único de transições (um futuro módulo não altera status por fora), a auditoria transacional e as permissões por rota. Parte B em andamento: decisões em [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md), roteiro e avaliação em [plano-parte-b.md](plano-parte-b.md). Etapa B0 entregue: contratos em `packages/shared/src/ai`, porta do extrator em `apps/api/src/modules/ai-analysis/extraction` e dataset/harness de avaliação offline em `apps/api/evals` — ainda sem chamadas a modelo, sem dependências novas e sem alteração de banco ou de telas.

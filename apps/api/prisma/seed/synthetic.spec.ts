@@ -1,6 +1,8 @@
 import { isValidCnpj, isValidCpf } from '@creditflow/shared';
 import {
   buildSyntheticPdf,
+  buildSyntheticPdfPages,
+  pdfVisibleText,
   sha256Hex,
   syntheticCnpj,
   syntheticCpf,
@@ -70,5 +72,46 @@ describe('buildSyntheticPdf', () => {
     expect(sha256Hex(pdf)).toBe(
       sha256Hex(buildSyntheticPdf(['DOCUMENTO SINTÉTICO', 'Cliente (demo): Ana'])),
     );
+  });
+});
+
+describe('buildSyntheticPdfPages', () => {
+  it('produces exactly the single-page bytes of buildSyntheticPdf', () => {
+    const lines = ['DOCUMENTO SINTETICO', 'Renda: R$ 1,00'];
+    expect(buildSyntheticPdfPages([{ lines }]).equals(buildSyntheticPdf(lines))).toBe(true);
+  });
+
+  it('writes several pages with a consistent xref and a text-less scanned page', () => {
+    const pdf = buildSyntheticPdfPages([
+      { lines: ['p1'] },
+      { scan: true, variant: 3 },
+      { lines: ['p3'] },
+    ]);
+    const text = pdf.toString('latin1');
+    expect(text).toContain('/Kids [3 0 R 6 0 R 8 0 R] /Count 3');
+    const xrefStart = Number(/startxref\n(\d+)/.exec(text)?.[1]);
+    const offsets = [...text.slice(xrefStart).matchAll(/^(\d{10}) 00000 n $/gm)].map((m) =>
+      Number(m[1]),
+    );
+    expect(offsets).toHaveLength(9);
+    offsets.forEach((offset, i) => {
+      expect(text.slice(offset, offset + `${i + 1} 0 obj`.length)).toBe(`${i + 1} 0 obj`);
+    });
+    // The scanned page has no text operators.
+    const scanStream =
+      /7 0 obj\n<< \/Length \d+ >>\nstream\n([\s\S]*?)\nendstream/.exec(text)?.[1] ?? '';
+    expect(scanStream).not.toMatch(/BT|Tj|'/);
+  });
+
+  it('varies scan bytes by variant', () => {
+    expect(
+      buildSyntheticPdfPages([{ scan: true, variant: 1 }]).equals(
+        buildSyntheticPdfPages([{ scan: true, variant: 2 }]),
+      ),
+    ).toBe(false);
+  });
+
+  it('exposes the visible text a reader recovers', () => {
+    expect(pdfVisibleText('Líquido: R$ 1,00 (ok)')).toBe('Liquido: R$ 1,00 (ok)');
   });
 });
