@@ -66,9 +66,9 @@ export interface SyntheticApplication {
 }
 
 /**
- * Expected comparison outcome, consumed from stage B2 on (rules of ADR-0011,
- * decision 5: tolerance zero; income matches gross OR net; abbreviated name
- * diverges).
+ * Expected comparison outcome (rules of ADR-0011, decision 5: tolerance zero;
+ * income matches gross OR net; abbreviated name diverges; nothing is concluded
+ * from unverified values).
  */
 export interface ExpectedFinding {
   subject:
@@ -84,5 +84,11 @@ export interface EvalCase {
   covers: readonly string[];
   application: SyntheticApplication;
   documents: EvalDocument[];
+  /** Ideal findings, from the ground truth (used by the quality metrics). */
   expectedFindings: ExpectedFinding[];
+  /**
+   * Exact findings given the RECORDED answers, when a scripted model mistake
+   * changes them (defaults to expectedFindings). Asserted by the offline test.
+   */
+  expectedFindingsWithRecording?: ExpectedFinding[];
 }

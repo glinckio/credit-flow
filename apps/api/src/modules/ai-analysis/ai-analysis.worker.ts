@@ -11,11 +11,12 @@ import { ConfigService } from '@nestjs/config';
 import {
   AiAnalysisRunStatus,
   AiRunErrorCode,
+  type AssessedDocument,
   DocumentExtractionStatus,
   FAILED_EXTRACTION_STATUSES,
   FIELDS_BY_DOCUMENT_TYPE,
 } from '@creditflow/shared';
-import type { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import type { Env } from '../../config/env.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { DocumentStorage } from '../../infra/storage/document-storage.js';
@@ -28,7 +29,8 @@ import {
 } from './ai-analysis.tokens.js';
 import { assessExtraction } from './extraction/assess-extraction.js';
 import type { DocumentExtractor, ExtractorResult } from './extraction/document-extractor.js';
-import { AiAnalysisService } from './ai-analysis.service.js';
+import { AiAnalysisService, type ReportSnapshot } from './ai-analysis.service.js';
+import { toAssessedDocument } from './extraction/to-assessed.js';
 
 /** How often the retention purge runs, at most. */
 const PURGE_EVERY_MS = 60 * 60 * 1000;
@@ -176,6 +178,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
     }
 
     const started = Date.now();
+    const assessed: AssessedDocument[] = [];
     let inputTokens = 0;
     let outputTokens = 0;
     const statuses: DocumentExtractionStatus[] = [];
@@ -224,6 +227,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
         },
       });
       statuses.push(a.status);
+      assessed.push(toAssessedDocument(doc.id, doc.type, a));
       inputTokens += result.usage.inputTokens;
       outputTokens += result.usage.outputTokens;
     }
@@ -235,11 +239,18 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
         : failed < statuses.length
           ? AiAnalysisRunStatus.PARTIAL
           : AiAnalysisRunStatus.FAILED;
+    // B2: deterministic findings + template report, frozen as they were at completion.
+    const snapshot = this.service.buildReport(
+      await this.service.declaredData(this.prisma, run.applicationId),
+      assessed,
+      Object.fromEntries(docs.map((d) => [d.id, d.originalName])),
+    );
     await this.finish(
       runId,
       status,
       status === AiAnalysisRunStatus.FAILED ? AiRunErrorCode.ALL_DOCUMENTS_FAILED : null,
       { inputTokens, outputTokens, latencyMs: Date.now() - started, documents: statuses.length },
+      snapshot,
     );
   }
 
@@ -273,6 +284,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
       latencyMs: 0,
       documents: 0,
     },
+    snapshot: ReportSnapshot | null = null,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // Only a run still RUNNING is finished (an expired lease may have failed it meanwhile).
@@ -286,6 +298,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
           inputTokens: metrics.inputTokens,
           outputTokens: metrics.outputTokens,
           latencyMs: metrics.latencyMs,
+          ...(snapshot ? { reportSnapshot: snapshot as unknown as Prisma.InputJsonValue } : {}),
         },
       });
       if (count === 0) return;
@@ -328,7 +341,10 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
     for (const run of expired) {
       await this.prisma.$transaction(async (tx) => {
         const { count } = await tx.aiDocumentExtraction.deleteMany({ where: { runId: run.id } });
-        await tx.aiAnalysisRun.update({ where: { id: run.id }, data: { purgedAt: now } });
+        await tx.aiAnalysisRun.update({
+          where: { id: run.id },
+          data: { purgedAt: now, reportSnapshot: Prisma.DbNull },
+        });
         await this.audit.record(tx, {
           actorId: null,
           action: 'ai_analysis.purged',

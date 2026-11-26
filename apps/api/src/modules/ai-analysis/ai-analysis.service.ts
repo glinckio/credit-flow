@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { HttpStatus, Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import {
   ACTIVE_RUN_STATUSES,
@@ -5,7 +6,14 @@ import {
   AiAnalysisRunStatus,
   AiAnalysisTrigger,
   ApplicationStatus,
+  type AssessedDocument,
+  COMPARISON_VERSION,
+  type DeclaredData,
   EXTRACTION_SCHEMA_VERSION,
+  type Finding,
+  type TemplateReport,
+  buildTemplateReport,
+  compareWithDeclared,
 } from '@creditflow/shared';
 import { Prisma } from '../../generated/prisma/client.js';
 import { AppException, Problems } from '../../common/http/app-exception.js';
@@ -20,12 +28,19 @@ import type {
   AiAnalysisRunDetailDto,
   AiAnalysisRunDto,
   AiDocumentExtractionDto,
-  AiFieldDto,
   RequestAiAnalysisDto,
 } from './ai-analysis.dto.js';
 import { DOCUMENT_EXTRACTOR, type OptionalDocumentExtractor } from './ai-analysis.tokens.js';
 import type { FieldAssessment } from './extraction/assess-extraction.js';
+import { toAssessedField } from './extraction/to-assessed.js';
 import { inputFingerprint } from './fingerprint.js';
+
+/** Stored in ai_analysis_runs.report_snapshot when a run finishes. */
+export interface ReportSnapshot {
+  comparisonVersion: string;
+  findings: Finding[];
+  report: TemplateReport;
+}
 
 type Tx = Prisma.TransactionClient;
 type Db = PrismaService | Tx;
@@ -171,23 +186,87 @@ export class AiAnalysisService implements OnModuleInit {
       throw Problems.notFound('Análise');
     });
     const current = await this.currentFingerprint(this.prisma, run.applicationId);
+    const documents = run.documents.map((d): AiDocumentExtractionDto => ({
+      id: d.id,
+      document: d.document,
+      documentSha256: d.documentSha256,
+      declaredType: d.declaredType,
+      status: d.status,
+      detectedType: d.detectedType,
+      typeMatchesDeclared: d.typeMatchesDeclared,
+      hasTextLayer: d.hasTextLayer,
+      injectionAlert: d.injectionAlert,
+      injectionPatterns: d.injectionPatterns,
+      injectionModelFlag: d.injectionModelFlag,
+      fields: (d.fields as unknown as FieldAssessment[]).map(toAssessedField),
+      schemaErrors: d.schemaErrors as unknown as string[],
+    }));
+
+    // Live comparison with the CURRENT declared data; the snapshot keeps what it said at completion.
+    const snapshot = run.reportSnapshot as unknown as ReportSnapshot | null;
+    const live =
+      run.purgedAt || documents.length === 0
+        ? null
+        : this.buildReport(
+            await this.declaredData(this.prisma, run.applicationId),
+            documents.map((d) => ({
+              documentId: d.document.id,
+              declaredType: d.declaredType,
+              status: d.status,
+              detectedType: d.detectedType,
+              typeMatchesDeclared: d.typeMatchesDeclared,
+              hasTextLayer: d.hasTextLayer,
+              injectionAlert: d.injectionAlert,
+              fields: d.fields,
+            })),
+            Object.fromEntries(documents.map((d) => [d.document.id, d.document.originalName])),
+          );
     return {
       ...this.toRunDto(run, run.inputFingerprint !== current),
-      documents: run.documents.map((d): AiDocumentExtractionDto => ({
-        id: d.id,
-        document: d.document,
-        documentSha256: d.documentSha256,
-        declaredType: d.declaredType,
-        status: d.status,
-        detectedType: d.detectedType,
-        typeMatchesDeclared: d.typeMatchesDeclared,
-        hasTextLayer: d.hasTextLayer,
-        injectionAlert: d.injectionAlert,
-        injectionPatterns: d.injectionPatterns,
-        injectionModelFlag: d.injectionModelFlag,
-        fields: (d.fields as unknown as FieldAssessment[]).map(toFieldDto),
-        schemaErrors: d.schemaErrors as unknown as string[],
-      })),
+      documents,
+      findings: live?.findings ?? [],
+      report: live?.report ?? null,
+      reportAtCompletion: snapshot?.report ?? null,
+      declaredDataChanged:
+        // Structural comparison: JSONB does not preserve key order.
+        !!live && !!snapshot && !isDeepStrictEqual(live.findings, snapshot.findings),
+    };
+  }
+
+  /** Declared data of the application and its customer, in canonical forms. */
+  async declaredData(db: Db, applicationId: string): Promise<DeclaredData> {
+    const app = await db.creditApplication.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { declaredMonthlyIncome: true, customer: true },
+    });
+    const c = app.customer;
+    return {
+      customerType: c.type,
+      name: c.name,
+      taxId: c.documentNumber,
+      birthOrFoundationDate: c.birthOrFoundationDate.toISOString().slice(0, 10),
+      address: {
+        street: c.addressStreet,
+        number: c.addressNumber,
+        city: c.addressCity,
+        state: c.addressState,
+        zipCode: c.addressZipCode,
+      },
+      declaredMonthlyIncome: app.declaredMonthlyIncome.toFixed(2),
+    };
+  }
+
+  /** Deterministic findings + template report (ADR-0011, B2). */
+  buildReport(
+    declared: DeclaredData,
+    documents: readonly AssessedDocument[],
+    labels: Readonly<Record<string, string>>,
+  ): ReportSnapshot {
+    const findings = compareWithDeclared(declared, documents);
+    return {
+      comparisonVersion: COMPARISON_VERSION,
+      findings,
+      report: buildTemplateReport(findings, documents, labels),
     };
   }
 
@@ -267,20 +346,6 @@ export class AiAnalysisService implements OnModuleInit {
       documentCount: r._count.documents,
     };
   }
-}
-
-function toFieldDto(f: FieldAssessment): AiFieldDto {
-  return {
-    key: f.key,
-    modelStatus: f.modelStatus,
-    modelValue: f.modelValue,
-    page: f.page,
-    quote: f.quote,
-    evidenceStatus: f.evidence?.status ?? null,
-    evidenceReason: f.evidence && 'reason' in f.evidence ? f.evidence.reason : null,
-    acceptedValue: f.acceptedValue,
-    rejectedBy: f.rejectedBy,
-  };
 }
 
 function isUniqueViolation(err: unknown): boolean {

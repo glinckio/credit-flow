@@ -496,6 +496,10 @@ export function buildCases(): EvalCase[] {
         }),
       ],
       expectedFindings: [{ subject: 'birthDate', documentId: 'identidade', kind: 'MISSING' }],
+      // The invented date is rejected, but the code cannot tell "absent" from "not verified".
+      expectedFindingsWithRecording: [
+        { subject: 'birthDate', documentId: 'identidade', kind: 'UNVERIFIABLE' },
+      ],
     },
     {
       id: 'misread-value',
@@ -510,6 +514,10 @@ export function buildCases(): EvalCase[] {
         }),
       ],
       expectedFindings: [{ subject: 'monthlyIncome', documentId: 'renda', kind: 'DIVERGENT' }],
+      // Net rejected: gross alone differs, but net might match → no conclusion.
+      expectedFindingsWithRecording: [
+        { subject: 'monthlyIncome', documentId: 'renda', kind: 'UNVERIFIABLE' },
+      ],
     },
     {
       id: 'wrong-label',
@@ -559,6 +567,9 @@ export function buildCases(): EvalCase[] {
         }),
       ],
       expectedFindings: [{ subject: 'holderTaxId', documentId: 'extrato', kind: 'CONSISTENT' }],
+      expectedFindingsWithRecording: [
+        { subject: 'holderTaxId', documentId: 'extrato', kind: 'UNVERIFIABLE' },
+      ],
     },
     {
       id: 'statement-multipage',

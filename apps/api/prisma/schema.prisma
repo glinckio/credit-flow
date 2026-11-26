@@ -383,6 +383,9 @@ model AiAnalysisRun {
   queuedAt                DateTime            @default(now()) @map("queued_at") @db.Timestamptz(3)
   startedAt               DateTime?           @map("started_at") @db.Timestamptz(3)
   finishedAt              DateTime?           @map("finished_at") @db.Timestamptz(3)
+  /// Findings and template report as computed when the run finished (comparison
+  /// with the declared data at that moment). Purged with the extractions.
+  reportSnapshot          Json?               @map("report_snapshot")
   /// Set when extracted content was removed by the retention policy (90 days).
   purgedAt                DateTime?           @map("purged_at") @db.Timestamptz(3)
 

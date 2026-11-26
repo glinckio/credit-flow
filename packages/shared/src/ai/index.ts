@@ -4,3 +4,5 @@ export * from './normalize.js';
 export * from './evidence.js';
 export * from './injection.js';
 export * from './run.js';
+export * from './comparison.js';
+export * from './report.js';

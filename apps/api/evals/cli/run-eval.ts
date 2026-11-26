@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { RecordedExtractor } from '../../src/modules/ai-analysis/extraction/recorded-extractor.js';
 import { buildCases } from '../dataset/cases.js';
+import { computeFindingMetrics } from '../harness/findings.js';
 import { computeMetrics } from '../harness/metrics.js';
 import { renderReport } from '../harness/report.js';
 import { recordingsFor, runEval } from '../harness/run-eval.js';
@@ -31,15 +32,17 @@ if (values.provider !== 'recorded') {
 
 const cases = buildCases();
 const extractor = new RecordedExtractor(recordingsFor(cases));
-const metrics = computeMetrics(await runEval(cases, extractor));
-const report = renderReport(metrics, extractor.model);
+const runs = await runEval(cases, extractor);
+const metrics = computeMetrics(runs);
+const findings = computeFindingMetrics(cases, runs);
+const report = renderReport(metrics, findings, extractor.model);
 
 const dir = join(EVALS_OUTPUT_DIR, 'reports');
 await mkdir(dir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 await writeFile(
   join(dir, `${stamp}-${extractor.model}.json`),
-  `${JSON.stringify(metrics, null, 2)}\n`,
+  `${JSON.stringify({ ...metrics, findings }, null, 2)}\n`,
 );
 await writeFile(join(dir, `${stamp}-${extractor.model}.md`), report);
 console.log(report);

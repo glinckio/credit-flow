@@ -80,11 +80,7 @@ export function computeMetrics(runs: readonly DocumentRun[]): EvalMetrics {
     latencyMs: { avg: 0, p95: 0 },
     tokens: { input: 0, output: 0 },
     deviations: [],
-    notYetMeasured: [
-      'precisão de divergências (B2)',
-      'custo por análise em US$ (B3)',
-      'correções feitas pelo analista (B5)',
-    ],
+    notYetMeasured: ['custo por análise em US$ (B3)', 'correções feitas pelo analista (B5)'],
   };
 
   for (const run of runs) {

@@ -1,6 +1,7 @@
 import { DocumentExtractionStatus, EvidenceStatus } from '@creditflow/shared';
 import { materialize } from './dataset/builder.js';
 import { buildCases } from './dataset/cases.js';
+import { caseFindings, computeFindingMetrics } from './harness/findings.js';
 import { computeMetrics } from './harness/metrics.js';
 import { recordingsFor, runEval } from './harness/run-eval.js';
 import { RecordedExtractor } from '../src/modules/ai-analysis/extraction/recorded-extractor.js';
@@ -84,6 +85,38 @@ describe('offline evaluation with recorded answers', async () => {
     expect(m.safeFallback.hit).toBe(m.safeFallback.total);
     expect(m.injectionAlert.hit).toBe(m.injectionAlert.total);
     expect(m.falseInjectionAlerts).toBe(0);
+  });
+
+  it('reproduces every expected finding given the recorded answers', () => {
+    const f = computeFindingMetrics(
+      cases,
+      runs,
+      (c) => c.expectedFindingsWithRecording ?? c.expectedFindings,
+    );
+    expect(f.deviations).toEqual([]);
+    expect(f.falseDivergences).toBe(0);
+    expect(f.missedDivergences).toBe(0);
+  });
+
+  it('differs from the ideal findings only where a scripted mistake hides a fact', () => {
+    const f = computeFindingMetrics(cases, runs);
+    expect(f.falseDivergences).toBe(0);
+    expect(f.deviations.map((d) => `${d.caseId}:${d.subject}:${d.produced}`).sort()).toEqual([
+      'invented-value:birthDate:UNVERIFIABLE',
+      'misread-value:monthlyIncome:UNVERIFIABLE',
+      'statement-multipage-wrong-page:holderTaxId:UNVERIFIABLE',
+    ]);
+  });
+
+  it('never bases a CONSISTENT or DIVERGENT finding on an unverified value', () => {
+    for (const c of cases) {
+      for (const finding of caseFindings(c, runs)) {
+        if (finding.kind !== 'CONSISTENT' && finding.kind !== 'DIVERGENT') continue;
+        if (finding.subject === 'documentType') continue;
+        expect(finding.documentValues.length, `${c.id}/${finding.id}`).toBeGreaterThan(0);
+        expect(finding.evidence.filter((e) => e.verified).length).toBeGreaterThan(0);
+      }
+    }
   });
 
   it('marks fields of a scanned document as UNVERIFIABLE, never as facts', () => {

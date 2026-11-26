@@ -1,12 +1,13 @@
 import { EXTRACTION_SCHEMA_VERSION } from '@creditflow/shared';
 import { DATASET_VERSION } from '../dataset/cases.js';
+import type { FindingMetrics } from './findings.js';
 import type { EvalMetrics, Ratio } from './metrics.js';
 
 const pct = (r: Ratio) =>
   r.total === 0 ? 'n/a' : `${r.hit}/${r.total} (${((100 * r.hit) / r.total).toFixed(1)}%)`;
 
 /** Human-readable summary (pt-BR) of an evaluation run. */
-export function renderReport(m: EvalMetrics, model: string): string {
+export function renderReport(m: EvalMetrics, f: FindingMetrics, model: string): string {
   const lines = [
     `# Avaliação — extração documental`,
     '',
@@ -26,6 +27,9 @@ export function renderReport(m: EvalMetrics, model: string): string {
     `| Alertas falsos de injection | ${m.falseInjectionAlerts} |`,
     `| Latência média / p95 (ms) | ${m.latencyMs.avg} / ${m.latencyMs.p95} |`,
     `| Tokens entrada / saída | ${m.tokens.input} / ${m.tokens.output} |`,
+    `| Achados corretos (comparação × gabarito) | ${pct(f.findingAccuracy)} |`,
+    `| Falsas divergências | ${f.falseDivergences} |`,
+    `| Divergências não sinalizadas | ${f.missedDivergences} |`,
     '',
     `Ainda não medido: ${m.notYetMeasured.join('; ')}.`,
   ];
@@ -40,6 +44,20 @@ export function renderReport(m: EvalMetrics, model: string): string {
     for (const d of m.deviations) {
       lines.push(
         `| ${d.caseId}/${d.documentId} | ${d.field} | ${d.expected ?? '—'} | ${d.accepted ?? '—'} | ${d.modelStatus} | ${d.evidence ?? '—'} |`,
+      );
+    }
+  }
+  if (f.deviations.length) {
+    lines.push(
+      '',
+      '## Achados diferentes do gabarito',
+      '',
+      '| Caso/documento | Assunto | Esperado | Produzido |',
+      '| --- | --- | --- | --- |',
+    );
+    for (const d of f.deviations) {
+      lines.push(
+        `| ${d.caseId}/${d.documentId} | ${d.subject} | ${d.expected} | ${d.produced ?? '—'} |`,
       );
     }
   }

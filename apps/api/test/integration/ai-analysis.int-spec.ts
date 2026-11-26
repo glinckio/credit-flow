@@ -189,6 +189,38 @@ describe('AI-assisted analysis (integration)', () => {
     const net = income.fields.find((f: { key: string }) => f.key === 'netMonthlyIncome');
     expect(net).toMatchObject({ evidenceStatus: 'VERIFIED', acceptedValue: '4100.00', page: 1 });
 
+    // B2: deterministic comparison with the declared data (synthetic customer ≠ Maria; 6500 declared).
+    const kind = (subject: string, type: string) =>
+      d.body.findings.find(
+        (f: { subject: string; documentId: string }) =>
+          f.subject === subject &&
+          f.documentId ===
+            d.body.documents.find((x: { declaredType: string }) => x.declaredType === type).document
+              .id,
+      )?.kind;
+    expect(kind('monthlyIncome', 'PROOF_OF_INCOME')).toBe('DIVERGENT');
+    expect(kind('holderName', 'IDENTIFICATION')).toBe('DIVERGENT');
+    expect(kind('documentType', 'PROOF_OF_INCOME')).toBe('CONSISTENT');
+    const incomeItem = d.body.report.attention.find(
+      (i: { subject: string }) => i.subject === 'monthlyIncome',
+    );
+    expect(incomeItem.text).toBe(
+      'Declarado: R$ 6.500,00. No documento: bruto R$ 5.000,00; líquido R$ 4.100,00. Os valores não são iguais.',
+    );
+    expect(d.body.reportAtCompletion).toEqual(d.body.report);
+    expect(d.body.declaredDataChanged).toBe(false);
+
+    // Declared data changes later: the live report follows, the snapshot stays.
+    const app0 = await t.prisma.creditApplication.findUniqueOrThrow({ where: { id } });
+    await t.prisma.customer.update({
+      where: { id: app0.customerId },
+      data: { name: 'Maria Silva Souza' },
+    });
+    const after = await detail(analyst, runId).expect(200);
+    expect(after.body.declaredDataChanged).toBe(true);
+    expect(after.body.reportAtCompletion).toEqual(d.body.report);
+    expect(after.body.report).not.toEqual(d.body.report);
+
     // The application itself is untouched by the AI.
     const app = await operator.http.get(url(id)).expect(200);
     expect(app.body.status).toBe('UNDER_REVIEW');
@@ -334,7 +366,13 @@ describe('AI-assisted analysis (integration)', () => {
     expect(await worker.purgeExpired()).toBe(1);
 
     const d = await detail(analyst, runId).expect(200);
-    expect(d.body).toMatchObject({ status: 'SUCCEEDED', documents: [] });
+    expect(d.body).toMatchObject({
+      status: 'SUCCEEDED',
+      documents: [],
+      findings: [],
+      report: null,
+      reportAtCompletion: null,
+    });
     expect(d.body.purgedAt).not.toBeNull();
     expect(await t.prisma.aiDocumentExtraction.count()).toBe(0);
     const purged = await t.prisma.auditEvent.findFirst({ where: { action: 'ai_analysis.purged' } });
@@ -362,7 +400,7 @@ describe('AI-assisted analysis (integration)', () => {
     const id = await inReview();
     const [run] = (await runs(analyst, id).expect(200)).body;
     const base = await t.prisma.aiAnalysisRun.findUniqueOrThrow({ where: { id: run.id } });
-    const { id: _id, ...copy } = base;
+    const { id: _id, reportSnapshot: _snapshot, ...copy } = base;
     await expect(
       t.prisma.aiAnalysisRun.create({ data: { ...copy, trigger: 'MANUAL' } }),
     ).rejects.toThrow();

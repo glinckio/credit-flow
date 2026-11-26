@@ -7,6 +7,8 @@ import {
   EvidenceStatus,
   ExtractedFieldKey,
   FieldStatus,
+  type Finding,
+  type TemplateReport,
 } from '@creditflow/shared';
 import { IsBoolean, IsOptional } from 'class-validator';
 import { UserRefDto } from '../customers/customers.dto.js';
@@ -99,4 +101,34 @@ export class AiAnalysisRunDetailDto extends AiAnalysisRunDto {
     description: 'Vazio depois do expurgo (purgedAt).',
   })
   documents!: AiDocumentExtractionDto[];
+
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'object' },
+    description:
+      'Achados determinísticos (comparação exata com os dados declarados ATUAIS). Vazio após o expurgo.',
+  })
+  findings!: Finding[];
+
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description:
+      'Relatório por template (sempre gerado por código), com os dados declarados atuais.',
+  })
+  report!: TemplateReport | null;
+
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description: 'O mesmo relatório como estava ao concluir a análise.',
+  })
+  reportAtCompletion!: TemplateReport | null;
+
+  @ApiProperty({
+    description: 'Os dados declarados mudaram desde a conclusão e alteraram algum achado.',
+  })
+  declaredDataChanged!: boolean;
 }

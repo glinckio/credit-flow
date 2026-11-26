@@ -90,3 +90,26 @@ Rodadas com o modelo real (B3+) só com autorização explícita a cada rodada, 
 **Configuração:** `AI_PROVIDER` (só `disabled` até a B3), `AI_MODEL` (lista fechada), `AI_WORKER_POLL_MS`, `AI_LEASE_MS`, `AI_RETENTION_DAYS`, `AI_MAX_DOCUMENTS_PER_RUN`. Com a IA desativada nada é enfileirado e o pedido manual responde `503 ai-disabled`.
 
 **Limite conhecido até a B3:** sem biblioteca de PDF, o leitor padrão informa "sem camada de texto", então nenhum valor é aceito como fato em produção — comportamento conservador e intencional. Os testes usam um leitor dos PDFs sintéticos.
+
+## B2 — entregue
+
+Comparação determinística ([`comparison.ts`](../packages/shared/src/ai/comparison.ts)) e relatório por template ([`report.ts`](../packages/shared/src/ai/report.ts)), sem nenhuma chamada a modelo.
+
+**Regras (tolerância zero, só valores aceitos como fato):**
+
+| Assunto            | Documentos                    | Regra                                                                                                                                                                                                                                             |
+| ------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nome do titular    | todos exceto "outro"          | igual após ignorar maiúsculas/acentos/pontuação; abreviação = divergente                                                                                                                                                                          |
+| CPF/CNPJ           | identidade, renda, extrato    | dígitos idênticos                                                                                                                                                                                                                                 |
+| Data de nascimento | identidade (só pessoa física) | data idêntica                                                                                                                                                                                                                                     |
+| Renda/faturamento  | comprovante de renda          | **confere** se bruto **ou** líquido **ou** faturamento médio for igual ao declarado; **divergente** só quando todos os valores citados foram verificados e nenhum é igual; se algum não pôde ser verificado, **não verificável** (não se conclui) |
+| Endereço           | comprovante de endereço       | todos os componentes iguais (logradouro com abreviação expandida, número, cidade, UF, CEP)                                                                                                                                                        |
+| Tipo de documento  | todos                         | conteúdo × tipo informado no envio                                                                                                                                                                                                                |
+
+**Tipos de achado:** `CONSISTENT` (confere), `DIVERGENT`, `MISSING` (o documento não traz), `AMBIGUOUS` (documento contraditório), `UNVERIFIABLE` (sem texto pesquisável, evidência recusada ou documento com texto dirigido a IA — neste caso nunca "contraditório", pois o valor conflitante provavelmente foi injetado). Documento cuja chamada ao provedor falhou não gera achado: o relatório o lista como "não analisado".
+
+**Relatório por template:** aviso fixo de que não é parecer nem decisão; pontos de atenção primeiro (divergente → contraditório → não verificável → ausente); frases geradas por código com valores formatados (`R$ 4.100,00`); evidências (página e trecho) por achado; documentos com status e alertas; limitações. Testado para nunca conter "aprov/reprov/recomend".
+
+**Atual × na conclusão:** o detalhe da análise (`GET /ai-analyses/:runId`) traz `findings` e `report` calculados com os dados declarados **atuais**, `reportAtCompletion` (snapshot gravado ao concluir, roadmap §16) e `declaredDataChanged`. O snapshot é removido no expurgo.
+
+**Avaliação:** achados esperados (ideais) em todos os casos do dataset; o teste offline exige reprodução exata com as respostas gravadas. Novas métricas: achados corretos, falsas divergências e divergências não sinalizadas.
