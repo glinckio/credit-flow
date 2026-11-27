@@ -43,7 +43,7 @@ export interface DocumentExpectation {
 export interface EvalDocument {
   id: string;
   declaredType: DocumentType;
-  mimeType: 'application/pdf';
+  mimeType: 'application/pdf' | 'image/png';
   pages: SyntheticPdfPage[];
   requestedFields: readonly ExtractedFieldKey[];
   truth: DocumentTruth;

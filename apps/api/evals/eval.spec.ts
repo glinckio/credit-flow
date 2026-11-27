@@ -46,7 +46,7 @@ describe('evaluation dataset', () => {
         const { pageTexts } = materialize(d);
         for (const t of Object.values(d.truth.fields)) {
           if (t.kind !== 'present' || !t.textLayer) continue;
-          expect(pageTexts[t.page - 1], `${c.id}/${d.id}`).toContain(t.quote);
+          expect(pageTexts?.[t.page - 1], `${c.id}/${d.id}`).toContain(t.quote);
         }
       }
     }

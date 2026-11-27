@@ -10,6 +10,11 @@ import {
   type RecordedResponse,
   RecordedExtractor,
 } from '../../src/modules/ai-analysis/extraction/recorded-extractor.js';
+import type {
+  DocumentExtractor,
+  ExtractionRequest,
+  ExtractorResult,
+} from '../../src/modules/ai-analysis/extraction/document-extractor.js';
 import { resetDatabase } from '../helpers/database.js';
 import { type TestApp, createTestApp, dump, signedIn } from '../helpers/app.js';
 import { applicationBody, createCustomer } from '../helpers/fixtures.js';
@@ -86,6 +91,23 @@ const EXTRA_ANSWER = {
 
 /** Mutable on purpose: each test may script the provider's answers. */
 const recordings = new Map<string, RecordedResponse>();
+
+/**
+ * Recorded answers reported as if billed by the real model, so the cost guard
+ * can be exercised without any network call. `usage` is per call.
+ */
+class PricedRecordedExtractor implements DocumentExtractor {
+  readonly model = 'claude-haiku-5-5';
+  readonly promptVersion = 'recorded';
+  usage = { inputTokens: 0, outputTokens: 0 };
+  private readonly inner = new RecordedExtractor(recordings);
+  calls = 0;
+  async extract(req: ExtractionRequest): Promise<ExtractorResult> {
+    this.calls++;
+    return { ...(await this.inner.extract(req)), model: this.model, usage: { ...this.usage } };
+  }
+}
+const extractor = new PricedRecordedExtractor();
 function answerAll() {
   recordings.set(sha256Hex(ID_PDF), { kind: 'ok', output: ID_ANSWER });
   recordings.set(sha256Hex(INCOME_PDF), { kind: 'ok', output: INCOME_ANSWER });
@@ -106,7 +128,7 @@ describe('AI-assisted analysis (integration)', () => {
     t = await createTestApp((b) =>
       b
         .overrideProvider(DOCUMENT_EXTRACTOR)
-        .useValue(new RecordedExtractor(recordings))
+        .useValue(extractor)
         .overrideProvider(DOCUMENT_TEXT_READER)
         .useValue(new SyntheticPdfTextReader()),
     );
@@ -115,6 +137,8 @@ describe('AI-assisted analysis (integration)', () => {
   beforeEach(async () => {
     await resetDatabase(t.prisma);
     answerAll();
+    extractor.usage = { inputTokens: 0, outputTokens: 0 };
+    extractor.calls = 0;
     operator = await signedIn(t, Role.OPERATOR);
     deciderOperator = await signedIn(t, Role.OPERATOR, { canDecide: true });
     analyst = await signedIn(t, Role.ANALYST);
@@ -165,8 +189,8 @@ describe('AI-assisted analysis (integration)', () => {
     expect(queued.body[0]).toMatchObject({
       trigger: 'AUTO_FIRST_REVIEW',
       status: 'QUEUED',
-      model: 'recorded',
-      promptVersion: 'none',
+      model: 'claude-haiku-5-5',
+      promptVersion: 'recorded',
       requestedBy: { id: analyst.user.id },
       stale: false,
     });
@@ -404,6 +428,84 @@ describe('AI-assisted analysis (integration)', () => {
     await expect(
       t.prisma.aiAnalysisRun.create({ data: { ...copy, trigger: 'MANUAL' } }),
     ).rejects.toThrow();
+  });
+});
+
+describe('AI-assisted analysis cost guards', () => {
+  let t: TestApp;
+  let worker: AiAnalysisWorker;
+
+  beforeAll(async () => {
+    t = await createTestApp((b) =>
+      b
+        .overrideProvider(DOCUMENT_EXTRACTOR)
+        .useValue(extractor)
+        .overrideProvider(DOCUMENT_TEXT_READER)
+        .useValue(new SyntheticPdfTextReader()),
+    );
+    worker = t.app.get(AiAnalysisWorker);
+  });
+  afterAll(async () => {
+    await t?.close();
+  });
+
+  async function reviewWith(docs: Array<[string, Buffer]>) {
+    await resetDatabase(t.prisma);
+    answerAll();
+    extractor.calls = 0;
+    const operator = await signedIn(t, Role.OPERATOR);
+    const analyst = await signedIn(t, Role.ANALYST);
+    const customerId = (await createCustomer(t.prisma, operator.user.id)).id;
+    const id = (
+      await operator.http.post('/api/v1/applications', applicationBody(customerId)).expect(201)
+    ).body.id as string;
+    for (const [type, pdf] of docs) {
+      await request(t.app.getHttpServer())
+        .post(`/api/v1/applications/${id}/documents`)
+        .set('Cookie', operator.cookie)
+        .set('X-Requested-With', 'XMLHttpRequest')
+        .field('type', type)
+        .attach('file', pdf, { filename: 'doc.pdf', contentType: 'application/pdf' })
+        .expect(201);
+    }
+    await operator.http.post(`/api/v1/applications/${id}/submit`).expect(200);
+    await analyst.http.post(`/api/v1/applications/${id}/start-review`).expect(200);
+    const runId = (await worker.runOnce())!;
+    return { analyst, runId };
+  }
+
+  it('does not send documents with too many pages to the model (TOO_LARGE)', async () => {
+    const eleven = buildSyntheticPdfPages(
+      Array.from({ length: 11 }, (_, i) => ({ lines: [`Pagina ${i + 1} - grande demais`] })),
+    );
+    extractor.usage = { inputTokens: 0, outputTokens: 0 };
+    const { analyst, runId } = await reviewWith([
+      ['IDENTIFICATION', ID_PDF],
+      ['PROOF_OF_INCOME', eleven],
+    ]);
+    expect(extractor.calls).toBe(1);
+    const d = (await analyst.http.get(`/api/v1/ai-analyses/${runId}`).expect(200)).body;
+    expect(d.status).toBe('PARTIAL');
+    expect(d.documents.map((x: { status: string }) => x.status).sort()).toEqual([
+      'OK',
+      'TOO_LARGE',
+    ]);
+  });
+
+  it('skips the remaining documents once the run reaches its cost limit (SKIPPED_BUDGET)', async () => {
+    // 1M input tokens of Haiku 5.5 above 100K → US$ 0.50 > default limit of US$ 0.10.
+    extractor.usage = { inputTokens: 1_000_000, outputTokens: 0 };
+    const { analyst, runId } = await reviewWith([
+      ['IDENTIFICATION', ID_PDF],
+      ['PROOF_OF_INCOME', INCOME_PDF],
+    ]);
+    expect(extractor.calls).toBe(1);
+    const d = (await analyst.http.get(`/api/v1/ai-analyses/${runId}`).expect(200)).body;
+    expect(d).toMatchObject({ status: 'PARTIAL', costUsd: '0.500000', inputTokens: 1_000_000 });
+    expect(d.documents.map((x: { status: string }) => x.status)).toEqual(['OK', 'SKIPPED_BUDGET']);
+    expect(d.report.limitations.some((l: string) => l.includes('não puderam ser analisados'))).toBe(
+      true,
+    );
   });
 });
 

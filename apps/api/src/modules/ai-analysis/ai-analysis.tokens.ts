@@ -16,14 +16,6 @@ export type OptionalDocumentExtractor = DocumentExtractor | null;
  */
 export interface DocumentTextReader {
   readPages(bytes: Buffer, mimeType: string): Promise<string[] | null>;
-}
-
-/**
- * Conservative default until the PDF library arrives (stage B3): reports no
- * text layer, so no value can be verified — and therefore none is accepted.
- */
-export class NoTextLayerReader implements DocumentTextReader {
-  async readPages(): Promise<null> {
-    return null;
-  }
+  /** Page count for the cost guard; images count as 1; null when unknown. */
+  countPages(bytes: Buffer, mimeType: string): Promise<number | null>;
 }

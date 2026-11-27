@@ -16,4 +16,9 @@ export class SyntheticPdfTextReader implements DocumentTextReader {
     );
     return pages.length ? pages : null;
   }
+
+  async countPages(bytes: Buffer, mimeType: string): Promise<number | null> {
+    if (mimeType !== 'application/pdf') return 1;
+    return (await this.readPages(bytes, mimeType))?.length ?? null;
+  }
 }

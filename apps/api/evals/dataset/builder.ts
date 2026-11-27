@@ -18,6 +18,7 @@ import {
 } from '../../prisma/seed/synthetic.js';
 import type { ProviderErrorCode } from '../../src/modules/ai-analysis/extraction/document-extractor.js';
 import type { RecordedResponse } from '../../src/modules/ai-analysis/extraction/recorded-extractor.js';
+import { buildSyntheticPng, pngVisibleText } from './png.js';
 import type { EvalDocument, TruthField } from './types.js';
 
 /**
@@ -74,6 +75,8 @@ export interface DocumentSpec {
   recordedRejects?: readonly ExtractedFieldKey[];
   /** Overrides the status derived from the truth (provider failures, contract violations). */
   expectStatus?: DocumentExtractionStatus;
+  /** "png": a single text page rendered as an image (no text layer). Default "pdf". */
+  format?: 'pdf' | 'png';
 }
 
 export const ok = (output: unknown): RecordedResponse => ({ kind: 'ok', output });
@@ -103,16 +106,23 @@ export function buildDocument(spec: DocumentSpec): EvalDocument {
     ExtractedFieldKey,
     Array<{ raw: string; page: number; quote: string; textLayer: boolean }>
   >();
+  const format = spec.format ?? 'pdf';
+  if (format === 'png' && (spec.pages.length !== 1 || 'scan' in spec.pages[0]!)) {
+    throw new Error(`${spec.caseId}/${spec.id}: a PNG document is exactly one text page`);
+  }
   const pages: SyntheticPdfPage[] = spec.pages.map((p, i) => {
-    const textLayer = !('scan' in p);
-    const lines = textLayer ? p.lines : p.visible;
+    const printed = !('scan' in p);
+    // Images never have a text layer, whatever is printed on them.
+    const textLayer = printed && format === 'pdf';
+    const lines = printed ? p.lines : p.visible;
     for (const l of lines) {
       if (typeof l === 'string') continue;
       const list = occurrences.get(l.field) ?? [];
-      list.push({ raw: l.raw, page: i + 1, quote: pdfVisibleText(lineText(l)), textLayer });
+      const visible = format === 'png' ? pngVisibleText(lineText(l)) : pdfVisibleText(lineText(l));
+      list.push({ raw: l.raw, page: i + 1, quote: visible, textLayer });
       occurrences.set(l.field, list);
     }
-    if (!textLayer) return { scan: true, variant: hash(`${spec.caseId}/${spec.id}/${i}`) };
+    if (!printed) return { scan: true, variant: hash(`${spec.caseId}/${spec.id}/${i}`) };
     return { lines: [...(i === 0 ? [header] : []), ...lines.map(lineText)] };
   });
   const fields = Object.fromEntries(
@@ -166,7 +176,7 @@ export function buildDocument(spec: DocumentSpec): EvalDocument {
   return {
     id: spec.id,
     declaredType: spec.declaredType,
-    mimeType: 'application/pdf',
+    mimeType: format === 'png' ? 'image/png' : 'application/pdf',
     pages,
     requestedFields,
     truth: { detectedType, legibility, injection, fields },
@@ -189,11 +199,16 @@ export function buildDocument(spec: DocumentSpec): EvalDocument {
 export interface MaterializedDocument {
   bytes: Buffer;
   sha256: string;
-  /** Text layer per page; '' for scanned pages. */
-  pageTexts: string[];
+  /** Text layer per page as printed ('' for scanned pages); null for images. */
+  pageTexts: string[] | null;
 }
 
 export function materialize(doc: EvalDocument): MaterializedDocument {
+  if (doc.mimeType === 'image/png') {
+    const page = doc.pages[0];
+    const bytes = buildSyntheticPng(page && 'lines' in page ? page.lines : []);
+    return { bytes, sha256: sha256Hex(bytes), pageTexts: null };
+  }
   const bytes = buildSyntheticPdfPages(doc.pages);
   return {
     bytes,

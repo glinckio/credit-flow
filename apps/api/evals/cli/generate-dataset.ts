@@ -23,7 +23,7 @@ for (const c of cases) {
   await mkdir(join(outDir, c.id), { recursive: true });
   for (const doc of c.documents) {
     const m = materialize(doc);
-    const file = join(c.id, `${doc.id}.pdf`);
+    const file = join(c.id, `${doc.id}.${doc.mimeType === 'image/png' ? 'png' : 'pdf'}`);
     await writeFile(join(outDir, file), m.bytes);
     documents.push({
       caseId: c.id,

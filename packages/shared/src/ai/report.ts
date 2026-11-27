@@ -57,6 +57,8 @@ export const EXTRACTION_STATUS_LABELS: Readonly<Record<DocumentExtractionStatus,
   REFUSED: 'Não analisado: o modelo recusou a solicitação',
   TIMEOUT: 'Não analisado: tempo esgotado',
   PROVIDER_ERROR: 'Não analisado: provedor indisponível',
+  TOO_LARGE: 'Não analisado: documento com páginas demais para a análise automática',
+  SKIPPED_BUDGET: 'Não analisado: limite de custo da análise atingido',
 };
 
 const FIELD_SHORT_LABELS: Readonly<Partial<Record<ExtractedFieldKey, string>>> = {

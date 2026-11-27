@@ -144,3 +144,24 @@ export function assessExtraction(input: AssessInput): DocumentAssessment {
 
   return { ...bare(DocumentExtractionStatus.OK, [], flag, out.detectedType), fields };
 }
+
+/** Assessment of a document that was NOT sent to the model (cost guards). */
+export function skippedAssessment(
+  status:
+    typeof DocumentExtractionStatus.TOO_LARGE | typeof DocumentExtractionStatus.SKIPPED_BUDGET,
+  pageTexts: readonly string[] | null,
+): DocumentAssessment {
+  const hasTextLayer = !!pageTexts?.some((t) => t.trim() !== '');
+  const scan = hasTextLayer
+    ? scanForEmbeddedInstructions(pageTexts ?? [])
+    : { detected: false, patterns: [] };
+  return {
+    status,
+    detectedType: null,
+    typeMatchesDeclared: null,
+    hasTextLayer,
+    injection: { modelFlag: null, scan, alert: scan.detected },
+    fields: [],
+    schemaErrors: [],
+  };
+}

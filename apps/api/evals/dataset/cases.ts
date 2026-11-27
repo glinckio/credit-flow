@@ -602,6 +602,45 @@ export function buildCases(): EvalCase[] {
       ],
     },
     {
+      id: 'income-image-png',
+      title: 'Holerite enviado como imagem PNG (sem texto pesquisável)',
+      covers: ['D10 imagens', 'D2/D10 evidência não verificável por código'],
+      application: maria,
+      documents: [income('income-image-png', { pages: [{ lines: payslip({}) }], format: 'png' })],
+      expectedFindings: [
+        { subject: 'holderName', documentId: 'renda', kind: 'UNVERIFIABLE' },
+        { subject: 'monthlyIncome', documentId: 'renda', kind: 'UNVERIFIABLE' },
+      ],
+    },
+    {
+      id: 'identification-image-png',
+      title: 'Documento de identidade enviado como imagem PNG',
+      covers: ['D10 imagens'],
+      application: maria,
+      documents: [
+        buildDocument({
+          caseId: 'identification-image-png',
+          id: 'identidade',
+          declaredType: D.IDENTIFICATION,
+          format: 'png',
+          pages: [
+            {
+              lines: [
+                'CARTEIRA DE IDENTIDADE (FICTICIA)',
+                F(K.HOLDER_NAME, 'Nome', maria.name),
+                F(K.HOLDER_TAX_ID, 'CPF', formatCpf(MARIA_CPF)),
+                F(K.BIRTH_DATE, 'Data de nascimento', '12/05/1990'),
+              ],
+            },
+          ],
+        }),
+      ],
+      expectedFindings: [
+        { subject: 'holderTaxId', documentId: 'identidade', kind: 'UNVERIFIABLE' },
+        { subject: 'birthDate', documentId: 'identidade', kind: 'UNVERIFIABLE' },
+      ],
+    },
+    {
       id: 'company-revenue',
       title: 'Declaração de faturamento de pessoa jurídica',
       covers: ['§15 documento legível e completo'],

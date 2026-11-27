@@ -30,6 +30,22 @@ describe('verifyEvidence', () => {
     ).toBe(EvidenceStatus.VERIFIED);
   });
 
+  it('ignores only whitespace: a missing space still matches, a changed character never does', () => {
+    const doc = ['Liquido a receber:R$4.100,00'];
+    expect(
+      verifyEvidence(
+        field(K.NET_MONTHLY_INCOME, 'R$ 4.100,00', 'Liquido a receber: R$ 4.100,00'),
+        doc,
+      ),
+    ).toEqual({ status: EvidenceStatus.VERIFIED, normalizedValue: '4100.00' });
+    expect(
+      verifyEvidence(
+        field(K.NET_MONTHLY_INCOME, 'R$ 4.100,00', 'Liquido a receber: R$ 4.100.00'),
+        doc,
+      ),
+    ).toMatchObject({ status: EvidenceStatus.UNVERIFIED, reason: 'quote-not-found' });
+  });
+
   it('rejects an invented value (not in the document)', () => {
     expect(
       verifyEvidence(

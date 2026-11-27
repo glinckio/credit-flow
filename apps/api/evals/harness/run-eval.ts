@@ -7,6 +7,8 @@ import {
   type DocumentAssessment,
   assessExtraction,
 } from '../../src/modules/ai-analysis/extraction/assess-extraction.js';
+import type { DocumentTextReader } from '../../src/modules/ai-analysis/ai-analysis.tokens.js';
+import { PdfJsTextReader } from '../../src/modules/ai-analysis/text/pdfjs-text-reader.js';
 import { materialize } from '../dataset/builder.js';
 import type { EvalCase, EvalDocument } from '../dataset/types.js';
 
@@ -40,6 +42,8 @@ export function recordingsFor(cases: readonly EvalCase[]): Map<string, RecordedR
 export async function runEval(
   cases: readonly EvalCase[],
   extractor: DocumentExtractor,
+  /** Same reader as production (PDF.js): the evaluation measures the real pipeline. */
+  textReader: DocumentTextReader = new PdfJsTextReader(),
 ): Promise<DocumentRun[]> {
   const runs: DocumentRun[] = [];
   for (const c of cases) {
@@ -53,12 +57,11 @@ export async function runEval(
         sha256: m.sha256,
         requestedFields: doc.requestedFields,
       });
-      // Stage B3 replaces `m.pageTexts` with the PDF library's text layer.
       const assessment = assessExtraction({
         declaredType: doc.declaredType,
         requestedFields: doc.requestedFields,
         result,
-        pageTexts: m.pageTexts,
+        pageTexts: await textReader.readPages(m.bytes, doc.mimeType),
       });
       runs.push({
         caseId: c.id,

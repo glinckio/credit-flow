@@ -15,6 +15,7 @@ import {
   DocumentExtractionStatus,
   FAILED_EXTRACTION_STATUSES,
   FIELDS_BY_DOCUMENT_TYPE,
+  requestCostUsd,
 } from '@creditflow/shared';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { Env } from '../../config/env.js';
@@ -27,10 +28,12 @@ import {
   type DocumentTextReader,
   type OptionalDocumentExtractor,
 } from './ai-analysis.tokens.js';
-import { assessExtraction } from './extraction/assess-extraction.js';
+import { assessExtraction, skippedAssessment } from './extraction/assess-extraction.js';
 import type { DocumentExtractor, ExtractorResult } from './extraction/document-extractor.js';
 import { AiAnalysisService, type ReportSnapshot } from './ai-analysis.service.js';
 import { toAssessedDocument } from './extraction/to-assessed.js';
+
+const ZERO = { inputTokens: 0, outputTokens: 0 };
 
 /** How often the retention purge runs, at most. */
 const PURGE_EVERY_MS = 60 * 60 * 1000;
@@ -179,6 +182,9 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
 
     const started = Date.now();
     const assessed: AssessedDocument[] = [];
+    const maxPages = this.config.get('AI_MAX_PAGES_PER_DOCUMENT', { infer: true });
+    const maxCostUsd = this.config.get('AI_MAX_COST_USD_PER_RUN', { infer: true });
+    let costUsd = 0;
     let inputTokens = 0;
     let outputTokens = 0;
     const statuses: DocumentExtractionStatus[] = [];
@@ -190,21 +196,42 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
         return this.finish(runId, AiAnalysisRunStatus.FAILED, AiRunErrorCode.DOCUMENT_INTEGRITY);
       }
       const requestedFields = FIELDS_BY_DOCUMENT_TYPE[doc.type];
-      const result = await this.safeExtract(extractor, {
-        documentId: doc.id,
-        declaredType: doc.type,
-        mimeType: doc.mimeType,
-        bytes,
-        sha256: doc.sha256,
-        requestedFields,
-      });
       const pageTexts = await this.textReader
         .readPages(bytes, doc.mimeType)
         .catch((err: unknown) => {
           this.logger.warn({ err, documentId: doc.id }, 'Text layer could not be read');
           return null;
         });
-      const a = assessExtraction({ declaredType: doc.type, requestedFields, result, pageTexts });
+
+      // Cost guards: decided BEFORE calling the model, never after.
+      const pages = await this.textReader.countPages(bytes, doc.mimeType).catch(() => null);
+      const skip =
+        pages !== null && pages > maxPages
+          ? DocumentExtractionStatus.TOO_LARGE
+          : costUsd >= maxCostUsd
+            ? DocumentExtractionStatus.SKIPPED_BUDGET
+            : null;
+
+      const result: ExtractorResult = skip
+        ? { kind: 'error', code: 'UNAVAILABLE', model: extractor.model, usage: ZERO, latencyMs: 0 }
+        : await this.safeExtract(extractor, {
+            documentId: doc.id,
+            declaredType: doc.type,
+            mimeType: doc.mimeType,
+            bytes,
+            sha256: doc.sha256,
+            requestedFields,
+          });
+      if (!skip) {
+        costUsd += requestCostUsd(
+          result.model,
+          result.usage.inputTokens,
+          result.usage.outputTokens,
+        );
+      }
+      const a = skip
+        ? skippedAssessment(skip, pageTexts)
+        : assessExtraction({ declaredType: doc.type, requestedFields, result, pageTexts });
 
       await this.prisma.aiDocumentExtraction.create({
         data: {
@@ -249,7 +276,13 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
       runId,
       status,
       status === AiAnalysisRunStatus.FAILED ? AiRunErrorCode.ALL_DOCUMENTS_FAILED : null,
-      { inputTokens, outputTokens, latencyMs: Date.now() - started, documents: statuses.length },
+      {
+        inputTokens,
+        outputTokens,
+        latencyMs: Date.now() - started,
+        documents: statuses.length,
+        costUsd,
+      },
       snapshot,
     );
   }
@@ -278,7 +311,13 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
     runId: string,
     status: AiAnalysisRunStatus,
     errorCode: string | null,
-    metrics: { inputTokens: number; outputTokens: number; latencyMs: number; documents: number } = {
+    metrics: {
+      inputTokens: number;
+      outputTokens: number;
+      latencyMs: number;
+      documents: number;
+      costUsd?: number;
+    } = {
       inputTokens: 0,
       outputTokens: 0,
       latencyMs: 0,
@@ -298,6 +337,8 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
           inputTokens: metrics.inputTokens,
           outputTokens: metrics.outputTokens,
           latencyMs: metrics.latencyMs,
+          costUsd:
+            metrics.costUsd === undefined ? null : new Prisma.Decimal(metrics.costUsd.toFixed(6)),
           ...(snapshot ? { reportSnapshot: snapshot as unknown as Prisma.InputJsonValue } : {}),
         },
       });
@@ -317,6 +358,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
           documents: metrics.documents,
           inputTokens: metrics.inputTokens,
           outputTokens: metrics.outputTokens,
+          costUsd: metrics.costUsd ?? 0,
         },
       });
     });

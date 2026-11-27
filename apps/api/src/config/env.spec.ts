@@ -15,6 +15,11 @@ describe('validateEnv', () => {
       LOG_LEVEL: 'info',
       STORAGE_DIR: 'var/storage',
       AI_PROVIDER: 'disabled',
+      ANTHROPIC_API_KEY: null,
+      AI_REQUEST_TIMEOUT_MS: 60_000,
+      AI_EFFORT: 'medium',
+      AI_MAX_PAGES_PER_DOCUMENT: 10,
+      AI_MAX_COST_USD_PER_RUN: 0.1,
       AI_MODEL: 'claude-haiku-5-5',
       AI_WORKER_POLL_MS: 2000,
       AI_LEASE_MS: 300_000,
@@ -23,8 +28,20 @@ describe('validateEnv', () => {
     });
   });
 
-  it('keeps AI disabled until the provider exists and only allows listed models', () => {
-    expect(() => validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'anthropic' })).toThrow(/stage B3/);
+  it('requires the API key for the anthropic provider and only allows listed models', () => {
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'anthropic' })).toThrow(
+      /ANTHROPIC_API_KEY is required/,
+    );
+    const env = validateEnv({
+      DATABASE_URL: DB,
+      AI_PROVIDER: 'anthropic',
+      ANTHROPIC_API_KEY: 'test-key',
+    });
+    expect(env.AI_PROVIDER).toBe('anthropic');
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'openai' })).toThrow(/AI_PROVIDER/);
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_MAX_COST_USD_PER_RUN: '0' })).toThrow(
+      /AI_MAX_COST_USD_PER_RUN/,
+    );
     expect(() => validateEnv({ DATABASE_URL: DB, AI_MODEL: 'claude-opus-5-5' })).toThrow(
       /AI_MODEL/,
     );

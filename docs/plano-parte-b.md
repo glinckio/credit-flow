@@ -113,3 +113,23 @@ Comparação determinística ([`comparison.ts`](../packages/shared/src/ai/compar
 **Atual × na conclusão:** o detalhe da análise (`GET /ai-analyses/:runId`) traz `findings` e `report` calculados com os dados declarados **atuais**, `reportAtCompletion` (snapshot gravado ao concluir, roadmap §16) e `declaredDataChanged`. O snapshot é removido no expurgo.
 
 **Avaliação:** achados esperados (ideais) em todos os casos do dataset; o teste offline exige reprodução exata com as respostas gravadas. Novas métricas: achados corretos, falsas divergências e divergências não sinalizadas.
+
+## B3 — entregue
+
+**Dependências novas (só na API):** `@anthropic-ai/sdk` 1.14.0 (SDK oficial) e `pdfjs-dist` 6.5.438 (PDF.js, Mozilla). Nenhuma outra.
+
+**Provedor:** `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` no `.env` (nunca no Git). Adaptador [`anthropic-extractor.ts`](../apps/api/src/modules/ai-analysis/extraction/anthropic-extractor.ts):
+
+- uma chamada por documento, **sem ferramentas**, com `output_config.format` (JSON Schema do contrato) e `effort` configurável (`AI_EFFORT`, padrão `medium`); PDF como bloco `document` base64, PNG/JPEG como bloco `image`;
+- prompt versionado (`EXTRACTION_PROMPT_VERSION = extract-v1`): documento é dado não confiável, valores copiados literalmente, nada deduzido;
+- `stop_reason: refusal` → `REFUSED`; saída cortada ou não-JSON → `SCHEMA_INVALID`; timeout → `TIMEOUT`; demais erros → `PROVIDER_ERROR`. No máximo 1 nova tentativa, feita pelo SDK; nenhuma pela aplicação. Logs só com classe/status do erro, nunca conteúdo.
+
+**Texto do PDF:** [`PdfJsTextReader`](../apps/api/src/modules/ai-analysis/text/pdfjs-text-reader.ts) extrai o texto por página (só o caminho de texto; nada é renderizado; fontes desativadas; arquivo inválido → sem camada de texto). O pdfjs-dist 6.x não tem mais a opção `isEvalSupported`.
+
+**Evidência:** a conferência passou a ignorar **somente espaços e quebras de linha** (bibliotecas de PDF não preservam os espaços visíveis); qualquer letra, dígito ou pontuação diferente continua recusando. `AI_PIPELINE_VERSION = pipeline-v2`.
+
+**Proteções de custo (decididas antes de chamar o modelo):** documento com mais de `AI_MAX_PAGES_PER_DOCUMENT` páginas (padrão 10) → `TOO_LARGE`; quando o custo estimado da execução atinge `AI_MAX_COST_USD_PER_RUN` (padrão US$ 0,10), os documentos restantes → `SKIPPED_BUDGET`. Custo por execução gravado em `cost_usd` (tabela de preço em `AI_MODEL_PRICING`, por requisição).
+
+**Imagens:** PNG/JPEG vão ao modelo; sem camada de texto, todos os valores ficam "não verificável" (D10). O dataset ganhou 2 casos em PNG (gerados por código, sem dependência).
+
+**Avaliação:** o harness usa o PDF.js real. Modelo real: `pnpm --filter @creditflow/api eval:ai --provider anthropic` mostra a estimativa (30 documentos, 34 páginas: ~US$ 0,045, pior caso US$ 0,135); só roda com `--confirm` e autorização. **Baseline ainda não medida.**

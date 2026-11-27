@@ -21,9 +21,19 @@ export interface Env {
   STORAGE_DIR: string;
   /**
    * AI-assisted analysis provider (ADR-0011). "disabled": no model is called and
-   * no run is queued. "anthropic" arrives in stage B3.
+   * no run is queued. "anthropic": Claude through the Messages API (synthetic data only).
    */
-  AI_PROVIDER: 'disabled';
+  AI_PROVIDER: 'disabled' | 'anthropic';
+  /** Required when AI_PROVIDER=anthropic. Secret: never logged, never audited. */
+  ANTHROPIC_API_KEY: string | null;
+  /** Per-request timeout of the provider call. */
+  AI_REQUEST_TIMEOUT_MS: number;
+  /** Reasoning effort sent to the model. */
+  AI_EFFORT: 'low' | 'medium' | 'high';
+  /** Documents with more pages are not sent to the model (TOO_LARGE). */
+  AI_MAX_PAGES_PER_DOCUMENT: number;
+  /** When a run's estimated cost reaches this, remaining documents are skipped (SKIPPED_BUDGET). */
+  AI_MAX_COST_USD_PER_RUN: number;
   /** Model recorded with every run; must be in ALLOWED_AI_MODELS. */
   AI_MODEL: AllowedAiModel;
   /** Worker polling interval; 0 disables the background worker (tests drive it explicitly). */
@@ -110,12 +120,22 @@ export function validateEnv(raw: Record<string, unknown>): Env {
   }
 
   const aiProvider = String(raw.AI_PROVIDER ?? 'disabled').trim() || 'disabled';
-  if (aiProvider !== 'disabled') {
-    errors.push(
-      aiProvider === 'anthropic'
-        ? 'AI_PROVIDER=anthropic is only available from Part B stage B3'
-        : 'AI_PROVIDER must be "disabled"',
-    );
+  if (aiProvider !== 'disabled' && aiProvider !== 'anthropic') {
+    errors.push('AI_PROVIDER must be "disabled" or "anthropic"');
+  }
+  const apiKey = String(raw.ANTHROPIC_API_KEY ?? '').trim() || null;
+  if (aiProvider === 'anthropic' && !apiKey) {
+    // Never echo the value; only its absence.
+    errors.push('ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic');
+  }
+  const aiEffort = String(raw.AI_EFFORT ?? 'medium').trim() || 'medium';
+  if (!['low', 'medium', 'high'].includes(aiEffort)) {
+    errors.push('AI_EFFORT must be low|medium|high');
+  }
+  const maxCostRaw = raw.AI_MAX_COST_USD_PER_RUN;
+  const aiMaxCost = maxCostRaw === undefined || maxCostRaw === '' ? 0.1 : Number(maxCostRaw);
+  if (!Number.isFinite(aiMaxCost) || aiMaxCost <= 0 || aiMaxCost > 10) {
+    errors.push('AI_MAX_COST_USD_PER_RUN must be a number greater than 0 and at most 10');
   }
   const aiModel = String(raw.AI_MODEL ?? ALLOWED_AI_MODELS[0]).trim() || ALLOWED_AI_MODELS[0];
   if (!(ALLOWED_AI_MODELS as readonly string[]).includes(aiModel)) {
@@ -132,6 +152,8 @@ export function validateEnv(raw: Record<string, unknown>): Env {
   const aiLeaseMs = intIn('AI_LEASE_MS', 300_000, 10_000, 3_600_000);
   const aiRetentionDays = intIn('AI_RETENTION_DAYS', 90, 1, 3650);
   const aiMaxDocuments = intIn('AI_MAX_DOCUMENTS_PER_RUN', 15, 1, 30);
+  const aiRequestTimeoutMs = intIn('AI_REQUEST_TIMEOUT_MS', 60_000, 5_000, 600_000);
+  const aiMaxPages = intIn('AI_MAX_PAGES_PER_DOCUMENT', 10, 1, 100);
 
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration:\n - ${errors.join('\n - ')}`);
@@ -147,7 +169,12 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     LOGIN_RATE_LIMIT: loginRateLimit,
     LOG_LEVEL: logLevel as Env['LOG_LEVEL'],
     STORAGE_DIR: storageDir,
-    AI_PROVIDER: 'disabled',
+    AI_PROVIDER: aiProvider as Env['AI_PROVIDER'],
+    ANTHROPIC_API_KEY: apiKey,
+    AI_REQUEST_TIMEOUT_MS: aiRequestTimeoutMs,
+    AI_EFFORT: aiEffort as Env['AI_EFFORT'],
+    AI_MAX_PAGES_PER_DOCUMENT: aiMaxPages,
+    AI_MAX_COST_USD_PER_RUN: aiMaxCost,
     AI_MODEL: aiModel as AllowedAiModel,
     AI_WORKER_POLL_MS: aiWorkerPollMs,
     AI_LEASE_MS: aiLeaseMs,

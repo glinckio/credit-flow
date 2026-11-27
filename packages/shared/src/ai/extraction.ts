@@ -68,6 +68,10 @@ export const DocumentExtractionStatus = {
   TIMEOUT: 'TIMEOUT',
   /** Provider unavailable or unexpected provider error. */
   PROVIDER_ERROR: 'PROVIDER_ERROR',
+  /** Not sent to the model: more pages than AI_MAX_PAGES_PER_DOCUMENT. */
+  TOO_LARGE: 'TOO_LARGE',
+  /** Not sent to the model: the run reached AI_MAX_COST_USD_PER_RUN. */
+  SKIPPED_BUDGET: 'SKIPPED_BUDGET',
 } as const;
 export type DocumentExtractionStatus = ValueOf<typeof DocumentExtractionStatus>;
 
@@ -80,11 +84,14 @@ const FIELD_KEYS = Object.values(ExtractedFieldKey) as string[];
 const STATUSES = Object.values(FieldStatus) as string[];
 const LEGIBILITY = Object.values(Legibility) as string[];
 
+/** Nullable as `anyOf` (listed as supported by structured outputs; type arrays are not listed). */
+const nullable = (type: 'string' | 'integer') => ({ anyOf: [{ type }, { type: 'null' }] });
+
 /**
  * JSON Schema handed to the provider's structured output. Restricted to the
  * fields requested for the declared document type. Kept to the basic keywords
- * (type, enum, properties, required, additionalProperties) — the subset to be
- * confirmed against the provider documentation in stage B3.
+ * (type, enum, anyOf, properties, required, additionalProperties: false),
+ * all listed as supported by the provider's structured outputs.
  */
 export function extractionJsonSchema(keys: readonly ExtractedFieldKey[]): Record<string, unknown> {
   return {
@@ -104,9 +111,9 @@ export function extractionJsonSchema(keys: readonly ExtractedFieldKey[]): Record
           properties: {
             key: { type: 'string', enum: [...keys] },
             status: { type: 'string', enum: STATUSES },
-            value: { type: ['string', 'null'] },
-            page: { type: ['integer', 'null'] },
-            quote: { type: ['string', 'null'] },
+            value: nullable('string'),
+            page: nullable('integer'),
+            quote: nullable('string'),
           },
         },
       },

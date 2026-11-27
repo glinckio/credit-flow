@@ -6,8 +6,9 @@ import { collapseWhitespace, normalizeFieldValue, normalizeText } from './normal
  * Deterministic evidence check (ADR-0011, decision 4). A value extracted by the
  * model becomes a fact only when ALL hold, against the document's own text:
  *
- * 1. the quote exists verbatim (whitespace-collapsed) on the cited page;
- * 2. the value exists verbatim inside the quote;
+ * 1. the quote exists on the cited page, character by character (only
+ *    whitespace and line breaks are ignored);
+ * 2. the value exists inside the quote, under the same rule;
  * 3. the closest label before the value, in the quote, belongs to this field
  *    (so "Liquido R$ 4.000,00" cannot be accepted as gross income);
  * 4. the value parses in the field's strict format;
@@ -38,6 +39,19 @@ export type EvidenceCheck =
   | { status: typeof EvidenceStatus.VERIFIED; normalizedValue: string }
   | { status: typeof EvidenceStatus.UNVERIFIED; reason: EvidenceReason }
   | { status: typeof EvidenceStatus.UNVERIFIABLE; reason: 'no-text-layer' };
+
+const stripWhitespace = (s: string) => s.replace(/\s+/g, '');
+
+/** Index in `text` of the n-th non-whitespace character (n = count before it). */
+function originalIndex(text: string, n: number): number {
+  let seen = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (/\s/.test(text[i] ?? '')) continue;
+    if (seen === n) return i;
+    seen++;
+  }
+  return text.length;
+}
 
 /** Every label of the catalogue, longest first (so "razao social" wins over "social"). */
 const ALL_LABELS = [...new Set(Object.values(FIELD_SPECS).flatMap((s) => s.labels))]
@@ -81,9 +95,12 @@ export function verifyEvidence(
 
   const q = collapseWhitespace(quote);
   const v = collapseWhitespace(value);
-  if (!pageText.includes(q)) return fail('quote-not-found');
-  const valueAt = q.indexOf(v);
-  if (v === '' || valueAt < 0) return fail('value-not-in-quote');
+  // Character-exact, whitespace-insensitive: PDF text layers do not reliably
+  // keep the spaces that are visible on the page ("R$4.100,00" vs "R$ 4.100,00").
+  if (!stripWhitespace(pageText).includes(stripWhitespace(q))) return fail('quote-not-found');
+  const strippedAt = stripWhitespace(q).indexOf(stripWhitespace(v));
+  if (v === '' || strippedAt < 0) return fail('value-not-in-quote');
+  const valueAt = originalIndex(q, strippedAt);
 
   const spec = FIELD_SPECS[field.key];
   const label = closestLabelBefore(q.slice(0, valueAt));

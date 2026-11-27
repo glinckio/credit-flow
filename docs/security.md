@@ -79,3 +79,5 @@ Decisões em [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md); estado atua
 - Conteúdo de documento é dado não confiável: chamada sem ferramentas, saída validada por código, valores só viram fato com evidência verificada; documento com texto dirigido a uma IA não gera fato.
 - Logs e auditoria nunca contêm valores extraídos nem trechos de documento; o expurgo remove o conteúdo após `AI_RETENTION_DAYS`.
 - Somente dados sintéticos no piloto. `AI_PROVIDER` só aceita `disabled` até a etapa B3.
+- PDFs são lidos pelo PDF.js apenas para extrair texto (sem renderização, sem fontes, sem XFA); falha de leitura = documento sem camada de texto.
+- `ANTHROPIC_API_KEY` só no `.env` (gitignored); a validação de ambiente nunca ecoa o valor; erros do provedor são registrados só com classe e status.

@@ -109,6 +109,8 @@ enum DocumentExtractionStatus {
   REFUSED
   TIMEOUT
   PROVIDER_ERROR
+  TOO_LARGE
+  SKIPPED_BUDGET
 }
 
 // ───────────────────────── Identity & access ─────────────────────────
