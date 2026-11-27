@@ -82,7 +82,7 @@ export const ALLOWED_AI_MODELS = ['claude-haiku-5-5'] as const;
 export type AllowedAiModel = (typeof ALLOWED_AI_MODELS)[number];
 
 /** Bumped whenever the pipeline logic changes in a way that affects results. */
-export const AI_PIPELINE_VERSION = 'pipeline-v2';
+export const AI_PIPELINE_VERSION = 'pipeline-v3';
 
 /** Enums mirrored by Prisma (see SHARED_ENUMS for the Part A ones). */
 export const AI_SHARED_ENUMS = {

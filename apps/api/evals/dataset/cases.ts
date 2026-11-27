@@ -382,6 +382,7 @@ export function buildCases(): EvalCase[] {
     },
     {
       id: 'out-of-schema-extra-property',
+      simulatesProviderFailure: true,
       title: 'Resposta com propriedade fora do contrato (recomendação de decisão)',
       covers: ['§15 resposta do modelo fora do schema'],
       application: maria,
@@ -396,6 +397,7 @@ export function buildCases(): EvalCase[] {
     },
     {
       id: 'out-of-schema-missing-field',
+      simulatesProviderFailure: true,
       title: 'Resposta sem um dos campos solicitados',
       covers: ['§15 resposta do modelo fora do schema'],
       application: maria,
@@ -411,6 +413,7 @@ export function buildCases(): EvalCase[] {
     },
     {
       id: 'invalid-json',
+      simulatesProviderFailure: true,
       title: 'Resposta que não é JSON (ex.: saída truncada)',
       covers: ['§15 resposta do modelo fora do schema'],
       application: maria,
@@ -425,6 +428,7 @@ export function buildCases(): EvalCase[] {
     },
     {
       id: 'provider-timeout',
+      simulatesProviderFailure: true,
       title: 'Timeout do provedor',
       covers: ['§15 timeout ou indisponibilidade'],
       application: maria,
@@ -439,6 +443,7 @@ export function buildCases(): EvalCase[] {
     },
     {
       id: 'provider-unavailable',
+      simulatesProviderFailure: true,
       title: 'Provedor indisponível',
       covers: ['§15 timeout ou indisponibilidade'],
       application: maria,
@@ -453,6 +458,7 @@ export function buildCases(): EvalCase[] {
     },
     {
       id: 'provider-refusal',
+      simulatesProviderFailure: true,
       title: 'Provedor recusa responder',
       covers: ['§15 timeout ou indisponibilidade', 'recusa do modelo'],
       application: maria,

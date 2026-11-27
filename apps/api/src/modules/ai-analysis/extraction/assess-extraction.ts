@@ -116,11 +116,13 @@ export function assessExtraction(input: AssessInput): DocumentAssessment {
   }
 
   const flag = out.embeddedInstructionsDetected;
-  if (out.detectedType === UNKNOWN_DOCUMENT_TYPE) {
-    return bare(DocumentExtractionStatus.UNSUPPORTED, [], flag, out.detectedType);
-  }
+  // Illegible first: a document nobody can read has no knowable type, so it
+  // must never be reported as "a different type" (found by the first real run).
   if (out.legibility === Legibility.ILLEGIBLE) {
     return bare(DocumentExtractionStatus.UNREADABLE, [], flag, out.detectedType);
+  }
+  if (out.detectedType === UNKNOWN_DOCUMENT_TYPE) {
+    return bare(DocumentExtractionStatus.UNSUPPORTED, [], flag, out.detectedType);
   }
 
   // A document whose text addresses an AI is evidence of tampering: nothing in

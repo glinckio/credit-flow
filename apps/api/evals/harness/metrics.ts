@@ -30,6 +30,14 @@ export interface FieldDeviation {
   evidence: string | null;
 }
 
+export interface StatusDeviation {
+  caseId: string;
+  documentId: string;
+  expected: string;
+  produced: string;
+  detectedType: string | null;
+}
+
 export interface EvalMetrics {
   cases: number;
   documents: number;
@@ -54,6 +62,7 @@ export interface EvalMetrics {
   latencyMs: { avg: number; p95: number };
   tokens: { input: number; output: number };
   deviations: FieldDeviation[];
+  statusDeviations: StatusDeviation[];
   /** Metrics of §15 that later stages provide. */
   notYetMeasured: string[];
 }
@@ -80,13 +89,23 @@ export function computeMetrics(runs: readonly DocumentRun[]): EvalMetrics {
     latencyMs: { avg: 0, p95: 0 },
     tokens: { input: 0, output: 0 },
     deviations: [],
-    notYetMeasured: ['custo por análise em US$ (B3)', 'correções feitas pelo analista (B5)'],
+    statusDeviations: [],
+    notYetMeasured: ['correções feitas pelo analista (B5)'],
   };
 
   for (const run of runs) {
     const { document: doc, assessment: a } = run;
     const expected = doc.expected;
     count(m.statusAccuracy, a.status === expected.status);
+    if (a.status !== expected.status) {
+      m.statusDeviations.push({
+        caseId: run.caseId,
+        documentId: doc.id,
+        expected: expected.status,
+        produced: a.status,
+        detectedType: a.detectedType,
+      });
+    }
     if (expected.status !== DocumentExtractionStatus.OK) {
       const producedFacts = a.fields.some((f) => f.acceptedValue !== null);
       count(m.safeFallback, a.status === expected.status && !producedFacts);

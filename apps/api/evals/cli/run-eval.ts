@@ -38,7 +38,12 @@ const { values } = parseArgs({
   },
 });
 
-const cases = buildCases();
+const allCases = buildCases();
+// Scripted provider failures only exist with the recorded extractor: a real
+// model answers those same documents normally (first paid run, 2026-11-27).
+const skipped =
+  values.provider === 'recorded' ? [] : allCases.filter((c) => c.simulatesProviderFailure);
+const cases = allCases.filter((c) => !skipped.includes(c));
 let extractor: DocumentExtractor;
 
 if (values.provider === 'recorded') {
@@ -96,7 +101,10 @@ const costUsd = runs.reduce(
   (sum, r) => sum + requestCostUsd(r.model, r.usage.inputTokens, r.usage.outputTokens),
   0,
 );
-const report = `${renderReport(metrics, findings, extractor.model)}\nCusto estimado da rodada: US$ ${costUsd.toFixed(4)}\n`;
+const skippedNote = skipped.length
+  ? `\nCasos que só simulam falha do provedor (rodam apenas no modo gravado): ${skipped.map((c) => c.id).join(', ')}.\n`
+  : '';
+const report = `${renderReport(metrics, findings, extractor.model)}${skippedNote}\nCusto da rodada: US$ ${costUsd.toFixed(4)}\n`;
 
 const dir = join(EVALS_OUTPUT_DIR, 'reports');
 await mkdir(dir, { recursive: true });

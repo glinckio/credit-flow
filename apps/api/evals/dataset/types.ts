@@ -91,4 +91,10 @@ export interface EvalCase {
    * changes them (defaults to expectedFindings). Asserted by the offline test.
    */
   expectedFindingsWithRecording?: ExpectedFinding[];
+  /**
+   * The case exists only to script a provider failure or an out-of-contract
+   * answer (timeout, refusal, invalid JSON...). A real provider answers the
+   * same document normally, so these cases run only with the recorded extractor.
+   */
+  simulatesProviderFailure?: true;
 }

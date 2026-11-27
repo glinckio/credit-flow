@@ -33,6 +33,20 @@ export function renderReport(m: EvalMetrics, f: FindingMetrics, model: string): 
     '',
     `Ainda não medido: ${m.notYetMeasured.join('; ')}.`,
   ];
+  if (m.statusDeviations.length) {
+    lines.push(
+      '',
+      '## Status de documento diferente do gabarito',
+      '',
+      '| Caso/documento | Esperado | Produzido | Tipo detectado |',
+      '| --- | --- | --- | --- |',
+    );
+    for (const d of m.statusDeviations) {
+      lines.push(
+        `| ${d.caseId}/${d.documentId} | ${d.expected} | ${d.produced} | ${d.detectedType ?? '—'} |`,
+      );
+    }
+  }
   if (m.deviations.length) {
     lines.push(
       '',

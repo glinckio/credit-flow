@@ -126,10 +126,27 @@ Comparação determinística ([`comparison.ts`](../packages/shared/src/ai/compar
 
 **Texto do PDF:** [`PdfJsTextReader`](../apps/api/src/modules/ai-analysis/text/pdfjs-text-reader.ts) extrai o texto por página (só o caminho de texto; nada é renderizado; fontes desativadas; arquivo inválido → sem camada de texto). O pdfjs-dist 6.x não tem mais a opção `isEvalSupported`.
 
-**Evidência:** a conferência passou a ignorar **somente espaços e quebras de linha** (bibliotecas de PDF não preservam os espaços visíveis); qualquer letra, dígito ou pontuação diferente continua recusando. `AI_PIPELINE_VERSION = pipeline-v2`.
+**Evidência:** a conferência passou a ignorar **somente espaços e quebras de linha** (bibliotecas de PDF não preservam os espaços visíveis); qualquer letra, dígito ou pontuação diferente continua recusando. `AI_PIPELINE_VERSION = pipeline-v2` (v3 após a primeira rodada real, abaixo).
 
 **Proteções de custo (decididas antes de chamar o modelo):** documento com mais de `AI_MAX_PAGES_PER_DOCUMENT` páginas (padrão 10) → `TOO_LARGE`; quando o custo estimado da execução atinge `AI_MAX_COST_USD_PER_RUN` (padrão US$ 0,10), os documentos restantes → `SKIPPED_BUDGET`. Custo por execução gravado em `cost_usd` (tabela de preço em `AI_MODEL_PRICING`, por requisição).
 
 **Imagens:** PNG/JPEG vão ao modelo; sem camada de texto, todos os valores ficam "não verificável" (D10). O dataset ganhou 2 casos em PNG (gerados por código, sem dependência).
 
-**Avaliação:** o harness usa o PDF.js real. Modelo real: `pnpm --filter @creditflow/api eval:ai --provider anthropic` mostra a estimativa (30 documentos, 34 páginas: ~US$ 0,045, pior caso US$ 0,135); só roda com `--confirm` e autorização. **Baseline ainda não medida.**
+**Avaliação:** o harness usa o PDF.js real. Modelo real: `pnpm --filter @creditflow/api eval:ai --provider anthropic` mostra a estimativa (30 documentos, 34 páginas: ~US$ 0,045, pior caso US$ 0,135); só roda com `--confirm` e autorização.
+
+**Primeira rodada real (2026-11-27, `claude-haiku-5-5`, effort `medium`, custo real US$ 0,02):**
+
+| Métrica                               | Resultado                                 |
+| ------------------------------------- | ----------------------------------------- |
+| Acerto por campo                      | 120/120                                   |
+| Validade das evidências               | 109/112 (as 3 inválidas foram bloqueadas) |
+| Afirmações erradas bloqueadas         | 2                                         |
+| Alerta de prompt injection            | 3/3, nenhum alerta falso                  |
+| Achados corretos                      | 34/36                                     |
+| Falsas divergências / não sinalizadas | 0 / 0                                     |
+| Latência média / p95                  | 3,3 s / 4,3 s                             |
+
+A rodada encontrou dois problemas, ambos corrigidos (`pipeline-v3`):
+
+1. **Harness:** os 6 casos que só simulam falha do provedor (timeout, recusa, JSON inválido etc.) foram enviados ao modelo real, que os respondeu corretamente. O gabarito esperava "nenhum valor", e a métrica crítica acusou 30. Esses casos agora rodam só no modo gravado (`simulatesProviderFailure`, com teste garantindo a marcação).
+2. **Pipeline:** um documento ilegível, de tipo "desconhecido", era classificado como "tipo não suportado" (divergência de tipo) antes de "ilegível". A renda ficava sem achado. A precedência foi invertida: ilegível vem primeiro e nunca vira divergência de tipo. O relatório do eval agora lista os documentos cujo status difere do gabarito, para confirmar isso na próxima rodada.

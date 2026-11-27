@@ -94,6 +94,12 @@ describe('assessExtraction', () => {
     expect(assess(okResult(output({ legibility: 'ILLEGIBLE' }))).status).toBe(S.UNREADABLE);
   });
 
+  it('treats an illegible document of unknown type as unreadable, not as another type', () => {
+    const blank = assess(okResult(output({ detectedType: 'UNKNOWN', legibility: 'ILLEGIBLE' })));
+    expect(blank.status).toBe(S.UNREADABLE);
+    expect(blank.typeMatchesDeclared).toBeNull();
+  });
+
   it('reports a type different from the declared one', () => {
     expect(assess(okResult(output({ detectedType: 'BANK_STATEMENT' }))).typeMatchesDeclared).toBe(
       false,

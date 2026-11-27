@@ -31,6 +31,19 @@ describe('evaluation dataset', () => {
     expect(() => recordingsFor(cases)).not.toThrow();
   });
 
+  it('marks exactly the cases that only script a provider failure (skipped with a real model)', () => {
+    const scripted: readonly DocumentExtractionStatus[] = [
+      DocumentExtractionStatus.SCHEMA_INVALID,
+      DocumentExtractionStatus.TIMEOUT,
+      DocumentExtractionStatus.PROVIDER_ERROR,
+      DocumentExtractionStatus.REFUSED,
+    ];
+    for (const c of cases) {
+      const failing = c.documents.some((d) => scripted.includes(d.expected.status));
+      expect(c.simulatesProviderFailure === true, c.id).toBe(failing);
+    }
+  });
+
   it('is deterministic (same code → same bytes)', () => {
     const again = buildCases();
     cases.forEach((c, i) =>
