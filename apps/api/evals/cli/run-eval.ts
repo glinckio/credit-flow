@@ -5,13 +5,17 @@
  *   pnpm --filter @creditflow/api eval:ai                                   # recorded answers (offline, free)
  *   pnpm --filter @creditflow/api eval:ai --provider anthropic            # dry run: cost estimate only
  *   pnpm --filter @creditflow/api eval:ai --provider anthropic --confirm  # PAID run
+ *   ... --confirm --update-baseline   # PAID run; records the baseline if nothing regressed
+ *
+ * A paid run is always compared with apps/api/evals/baseline.json (B6) and
+ * exits 1 on regression.
  *
  * Every run against a real model costs money and needs explicit authorization
  * of the product owner beforehand, after seeing the current results
  * (ADR-0011; docs/plano-parte-b.md). Synthetic data only.
  */
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import Anthropic from '@anthropic-ai/sdk';
@@ -24,6 +28,11 @@ import { materialize } from '../dataset/builder.js';
 import { buildCases } from '../dataset/cases.js';
 import { computeFindingMetrics } from '../harness/findings.js';
 import { computeMetrics } from '../harness/metrics.js';
+import {
+  extractionFingerprint,
+  extractionGateMetrics,
+  gateAndRecord,
+} from '../harness/regression.js';
 import { renderReport } from '../harness/report.js';
 import { recordingsFor, runEval } from '../harness/run-eval.js';
 import { EVALS_OUTPUT_DIR } from './paths.js';
@@ -35,6 +44,7 @@ const { values } = parseArgs({
     provider: { type: 'string', default: 'recorded' },
     confirm: { type: 'boolean', default: false },
     effort: { type: 'string', default: 'medium' },
+    'update-baseline': { type: 'boolean', default: false },
   },
 });
 
@@ -118,3 +128,20 @@ console.log(report);
 
 // The safety metric is a hard gate, whatever the provider.
 if (metrics.unsupportedAccepted > 0) process.exit(1);
+
+// Real model: regression gate against the versioned baseline (stage B6).
+if (values.provider === 'anthropic') {
+  const gate = await gateAndRecord({
+    kind: 'extraction',
+    fingerprint: await extractionFingerprint(
+      extractor.model,
+      values.effort as 'low' | 'medium' | 'high',
+    ),
+    metrics: extractionGateMetrics(metrics, findings, costUsd),
+    costUsd,
+    update: values['update-baseline'],
+  });
+  console.log(gate.text);
+  await appendFile(join(dir, `${stamp}-${extractor.model}.md`), `\n${gate.text}\n`);
+  process.exit(gate.exitCode);
+}

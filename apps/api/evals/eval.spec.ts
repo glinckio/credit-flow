@@ -1,4 +1,5 @@
 import {
+  ALLOWED_AI_MODELS,
   DocumentExtractionStatus,
   EvidenceStatus,
   FindingKind,
@@ -12,6 +13,12 @@ import { recordingsFor, runEval } from './harness/run-eval.js';
 import { RecordedExtractor } from '../src/modules/ai-analysis/extraction/recorded-extractor.js';
 import { DeterministicNarrativeWriter } from '../src/modules/ai-analysis/narrative/narrative-writer.js';
 import { runNarrativeEval } from './harness/narrative.js';
+import {
+  extractionFingerprint,
+  narrativeFingerprint,
+  readBaseline,
+  regressions,
+} from './harness/regression.js';
 
 const cases = buildCases();
 
@@ -168,4 +175,56 @@ describe('offline narrative evaluation', async () => {
         expect(cited, `${n.caseId}: ${f.id}`).toContain(f.id);
     }
   });
+});
+
+describe('regression gate (B6)', () => {
+  const ratio = (hit: number, total: number) => ({ hit, total });
+  const base = {
+    fieldAccuracy: ratio(100, 100),
+    unsupportedAccepted: 0,
+    costPerDocumentUsd: 0.001,
+  };
+
+  it('keeps zero metrics at zero, allows one case of noise per rate and 50% more cost', () => {
+    expect(regressions(base, base)).toEqual([]);
+    expect(regressions({ ...base, fieldAccuracy: ratio(99, 100) }, base)).toEqual([]);
+    expect(regressions({ ...base, fieldAccuracy: ratio(98, 100) }, base)).toEqual([
+      'fieldAccuracy: 98/100 < baseline 100/100',
+    ]);
+    expect(regressions({ ...base, unsupportedAccepted: 1 }, base)).toEqual([
+      'unsupportedAccepted: 1 (deve ser 0)',
+    ]);
+    expect(regressions({ ...base, costPerDocumentUsd: 0.0015 }, base)).toEqual([]);
+    expect(regressions({ ...base, costPerDocumentUsd: 0.0016 }, base)[0]).toMatch(
+      /^costPerDocumentUsd/,
+    );
+    // Without a baseline, only the zero metrics apply.
+    expect(regressions({ ...base, fieldAccuracy: ratio(1, 100) }, undefined)).toEqual([]);
+  });
+
+  it('fingerprints what is sent to the model, deterministically', async () => {
+    const a = await extractionFingerprint('claude-haiku-5-5', 'medium');
+    expect(await extractionFingerprint('claude-haiku-5-5', 'medium')).toEqual(a);
+    expect((await extractionFingerprint('claude-haiku-5-5', 'high')).requests).not.toBe(a.requests);
+    const n = await narrativeFingerprint('claude-haiku-5-5', 'medium');
+    expect((await narrativeFingerprint('other-model', 'medium')).request).not.toBe(n.request);
+  });
+
+  // The gate itself: changing the model, a prompt, a schema or the pipeline
+  // fails here until an authorized real evaluation records a new baseline
+  // (`eval:ai` / `eval:narrative --provider anthropic --confirm --update-baseline`).
+  it.each(ALLOWED_AI_MODELS)(
+    'has a baseline for %s measured with the current configuration',
+    async (model) => {
+      const baseline = await readBaseline();
+      expect(baseline.extraction[model]?.fingerprint, 'extraction').toEqual(
+        await extractionFingerprint(model, 'medium'),
+      );
+      expect(baseline.narrative[model]?.fingerprint, 'narrative').toEqual(
+        await narrativeFingerprint(model, 'medium'),
+      );
+      expect(regressions(baseline.extraction[model]!.metrics, undefined)).toEqual([]);
+      expect(regressions(baseline.narrative[model]!.metrics, undefined)).toEqual([]);
+    },
+  );
 });

@@ -7,6 +7,7 @@ import {
   type PipeTransform,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
@@ -25,12 +26,14 @@ import { SESSION_COOKIE } from '../auth/session.service.js';
 import {
   AiAnalysisRunDetailDto,
   AiAnalysisRunDto,
+  AiMetricsQueryDto,
   FindingFeedbackBodyDto,
   FindingFeedbackDto,
   RequestAiAnalysisDto,
 } from './ai-analysis.dto.js';
 import { Problems } from '../../common/http/app-exception.js';
 import { AiAnalysisService } from './ai-analysis.service.js';
+import { AiMetricsService } from './ai-metrics.service.js';
 
 /** `<subject>:<uuid>`; anything else is a 404 (no such finding). */
 class FindingIdPipe implements PipeTransform<string, string> {
@@ -44,7 +47,23 @@ class FindingIdPipe implements PipeTransform<string, string> {
 @ApiCookieAuth(SESSION_COOKIE)
 @Controller()
 export class AiAnalysisController {
-  constructor(private readonly service: AiAnalysisService) {}
+  constructor(
+    private readonly service: AiAnalysisService,
+    private readonly metricsService: AiMetricsService,
+  ) {}
+
+  @Get('ai-metrics')
+  @RequirePermissions(Permission.AI_ANALYSIS_METRICS)
+  @ApiOperation({
+    summary: 'Custo e qualidade das análises de IA no período (admin)',
+    description:
+      'Somente contagens e valores agregados: nenhum dado extraído, trecho ou comentário. ' +
+      'Documentos, achados e narrativa cobrem execuções ainda não expurgadas.',
+  })
+  @ApiOkResponse({ description: 'Ver o tipo AiMetrics em @creditflow/shared.' })
+  metrics(@Query() q: AiMetricsQueryDto) {
+    return this.metricsService.metrics(q.days);
+  }
 
   @Get('applications/:id/ai-analyses')
   @RequirePermissions(Permission.AI_ANALYSIS_READ)

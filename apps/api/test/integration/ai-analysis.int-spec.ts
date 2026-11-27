@@ -442,6 +442,52 @@ describe('AI-assisted analysis (integration)', () => {
     );
   });
 
+  it('aggregates cost and quality for admins, without any extracted content', async () => {
+    extractor.usage = { inputTokens: 2_000, outputTokens: 500 };
+    const id = await inReview();
+    const runId = (await worker.runOnce())!;
+    const d = (await detail(analyst, runId).expect(200)).body;
+    const findingId = d.report.attention[0].findingId as string;
+    await analyst.http
+      .put(`/api/v1/ai-analyses/${runId}/findings/${encodeURIComponent(findingId)}/feedback`, {
+        verdict: 'INCORRECT',
+        comment: 'Comentario sigiloso do analista.',
+      })
+      .expect(200);
+    await analyst.http.post(url(id, '/ai-analyses'), { force: true }).expect(202);
+
+    const m = (await admin.http.get('/api/v1/ai-metrics?days=7').expect(200)).body;
+    expect(m).toMatchObject({
+      days: 7,
+      runs: {
+        total: 2,
+        byStatus: { SUCCEEDED: 1, QUEUED: 1 },
+        byTrigger: { AUTO_FIRST_REVIEW: 1, MANUAL: 1 },
+        purged: 0,
+      },
+      documents: { total: 2, byStatus: { OK: 2 }, injectionAlerts: 0, withoutTextLayer: 0 },
+      narrative: { byStatus: { OK: 1 } },
+      feedback: { total: 1, correct: 0, incorrect: 1, correctionRate: 1 },
+    });
+    expect(m.feedback.incorrectBySubject).toEqual({ [findingId.split(':')[0]!]: 1 });
+    expect(m.byVersion).toEqual([
+      expect.objectContaining({ model: extractor.model, runs: 2, failed: 0 }),
+    ]);
+    expect(Number(m.cost.totalUsd)).toBeGreaterThan(0);
+    const findingsTotal = Object.values(m.findings.byKind as Record<string, number>).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    expect(findingsTotal).toBe(d.findings.length);
+    const text = dump(m);
+    expect(text).not.toMatch(/sigiloso|Maria|4\.100|529\.982|quote/);
+
+    for (const who of [analyst, deciderOperator, operator])
+      await who.http.get('/api/v1/ai-metrics').expect(403);
+    await admin.http.get('/api/v1/ai-metrics?days=0').expect(400);
+    await admin.http.get('/api/v1/ai-metrics?days=366').expect(400);
+  });
+
   it('records provider failures per document (PARTIAL / FAILED) without blocking the human flow', async () => {
     recordings.set(sha256Hex(ID_PDF), { kind: 'error', code: 'TIMEOUT' });
     const id = await inReview();

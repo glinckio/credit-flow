@@ -6,12 +6,13 @@
  *   pnpm --filter @creditflow/api eval:narrative --provider anthropic            # dry run: cost estimate only
  *   pnpm --filter @creditflow/api eval:narrative --provider anthropic --confirm  # PAID run
  *   pnpm --filter @creditflow/api eval:narrative --replay <report.json>          # re-validate a saved run (free)
+ *   ... --confirm --update-baseline   # PAID run; records the baseline if nothing regressed (B6)
  *
  * Every run against a real model needs explicit authorization beforehand,
  * after seeing the current results (ADR-0011). Synthetic data only.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import Anthropic from '@anthropic-ai/sdk';
@@ -33,6 +34,11 @@ import {
 import { buildCases } from '../dataset/cases.js';
 import { caseFindings } from '../harness/findings.js';
 import { narrativeMetrics, renderNarrativeReport, runNarrativeEval } from '../harness/narrative.js';
+import {
+  gateAndRecord,
+  narrativeFingerprint,
+  narrativeGateMetrics,
+} from '../harness/regression.js';
 import { recordingsFor, runEval } from '../harness/run-eval.js';
 import { EVALS_OUTPUT_DIR } from './paths.js';
 
@@ -43,6 +49,7 @@ const { values } = parseArgs({
     confirm: { type: 'boolean', default: false },
     effort: { type: 'string', default: 'medium' },
     replay: { type: 'string' },
+    'update-baseline': { type: 'boolean', default: false },
   },
 });
 
@@ -140,3 +147,17 @@ console.log(report);
 // Offline, the deterministic writer must always pass the validator.
 if (!values.replay && values.provider === 'recorded' && metrics.byStatus[NarrativeStatus.REJECTED])
   process.exit(1);
+
+// Real model: regression gate against the versioned baseline (stage B6).
+if (!values.replay && values.provider === 'anthropic') {
+  const gate = await gateAndRecord({
+    kind: 'narrative',
+    fingerprint: await narrativeFingerprint(label, values.effort as 'low' | 'medium' | 'high'),
+    metrics: narrativeGateMetrics(metrics),
+    costUsd: metrics.costUsd,
+    update: values['update-baseline'],
+  });
+  console.log(gate.text);
+  await appendFile(join(dir, `${stamp}-narrative-${label}.md`), `\n${gate.text}\n`);
+  process.exit(gate.exitCode);
+}

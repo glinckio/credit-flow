@@ -29,6 +29,7 @@ const EXPECTED: Record<Permission, Record<Role, boolean>> = {
   'document.validate': { ADMIN: false, ANALYST: true, OPERATOR: false },
   'ai_analysis.read': { ADMIN: true, ANALYST: true, OPERATOR: false },
   'ai_analysis.request': { ADMIN: false, ANALYST: true, OPERATOR: false },
+  'ai_analysis.metrics': { ADMIN: true, ANALYST: false, OPERATOR: false },
 };
 
 describe('permission matrix', () => {
@@ -63,6 +64,17 @@ describe('permission matrix', () => {
     expect(
       hasPermission({ role: Role.OPERATOR, canDecide: false }, Permission.AI_ANALYSIS_READ),
     ).toBe(false);
+  });
+
+  it('shows the aggregated AI metrics to admins only', () => {
+    expect(
+      hasPermission({ role: Role.ADMIN, canDecide: false }, Permission.AI_ANALYSIS_METRICS),
+    ).toBe(true);
+    for (const user of [
+      { role: Role.ANALYST, canDecide: false },
+      { role: Role.OPERATOR, canDecide: true },
+    ])
+      expect(hasPermission(user, Permission.AI_ANALYSIS_METRICS)).toBe(false);
   });
 
   it('ignores canDecide for admins (segregation of duties)', () => {

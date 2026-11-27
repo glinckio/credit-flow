@@ -390,7 +390,21 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
         },
       });
     });
-    this.logger.log({ runId, status, errorCode }, 'AI analysis finished');
+    // Counters only (observability, B6): never values, quotes or file names.
+    this.logger.log(
+      {
+        runId,
+        status,
+        errorCode,
+        documents: metrics.documents,
+        inputTokens: metrics.inputTokens,
+        outputTokens: metrics.outputTokens,
+        costUsd: metrics.costUsd ?? 0,
+        latencyMs: metrics.latencyMs,
+        narrativeStatus: metrics.narrativeStatus ?? null,
+      },
+      'AI analysis finished',
+    );
   }
 
   // ───────────────────────────── retention ─────────────────────────────

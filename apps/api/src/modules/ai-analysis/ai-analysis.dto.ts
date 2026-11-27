@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  AI_METRICS_MAX_DAYS,
   AiAnalysisRunStatus,
   AiAnalysisTrigger,
   DocumentExtractionStatus,
@@ -13,7 +14,8 @@ import {
   type NarrativeReport,
   type TemplateReport,
 } from '@creditflow/shared';
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { UserRefDto } from '../customers/customers.dto.js';
 
 export class RequestAiAnalysisDto {
@@ -173,4 +175,14 @@ export class AiAnalysisRunDetailDto extends AiAnalysisRunDto {
     description: 'Avaliação dos achados pelo analista (B5). Removida no expurgo.',
   })
   feedback!: FindingFeedbackDto[];
+}
+
+export class AiMetricsQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: AI_METRICS_MAX_DAYS, default: 30 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'days deve ser um número inteiro' })
+  @Min(1, { message: 'days deve ser ao menos 1' })
+  @Max(AI_METRICS_MAX_DAYS, { message: `days deve ser no máximo ${AI_METRICS_MAX_DAYS}` })
+  days: number = 30;
 }

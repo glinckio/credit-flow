@@ -27,6 +27,8 @@ export const Permission = {
   AI_ANALYSIS_READ: 'ai_analysis.read',
   /** Request a manual reprocessing of the AI analysis (assignee only, checked in the service). */
   AI_ANALYSIS_REQUEST: 'ai_analysis.request',
+  /** Aggregated cost and quality of the AI analyses (no extracted content). Admin only. */
+  AI_ANALYSIS_METRICS: 'ai_analysis.metrics',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 
@@ -51,6 +53,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     P.DOCUMENT_READ,
     P.DOCUMENT_UPLOAD,
     P.AI_ANALYSIS_READ,
+    P.AI_ANALYSIS_METRICS,
   ],
   [Role.ANALYST]: [
     P.DASHBOARD_READ,

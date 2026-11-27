@@ -90,7 +90,7 @@ export function computeMetrics(runs: readonly DocumentRun[]): EvalMetrics {
     tokens: { input: 0, output: 0 },
     deviations: [],
     statusDeviations: [],
-    notYetMeasured: ['correções feitas pelo analista (B5)'],
+    notYetMeasured: ['correções feitas pelo analista (medidas em produção: métricas da IA, B6)'],
   };
 
   for (const run of runs) {

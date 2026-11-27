@@ -75,7 +75,7 @@ Além das suítes de integração, o teste ponta a ponta confirma no navegador r
 Decisões em [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md); estado atual em [plano-parte-b.md](plano-parte-b.md).
 
 - A IA não altera solicitação, documentos, pareceres nem decisões; nenhuma rota de IA escreve fora das tabelas `ai_*`.
-- Leitura: `ai_analysis.read` (analista, admin, operador com `canDecide`) + mesma visibilidade da solicitação (rascunho oculto → 404). Reprocessar e avaliar achados: `ai_analysis.request` + analista responsável.
+- Leitura: `ai_analysis.read` (analista, admin, operador com `canDecide`) + mesma visibilidade da solicitação (rascunho oculto → 404). Reprocessar e avaliar achados: `ai_analysis.request` + analista responsável. Métricas agregadas (`GET /ai-metrics`): `ai_analysis.metrics`, só admin; só contagens e valores, nunca conteúdo extraído, trechos ou comentários.
 - Avaliação de achado (correto/incorreto + comentário): o comentário pode citar o documento, então fica fora da auditoria (que guarda só veredito, assunto e tipo do achado) e é apagado no expurgo.
 - `AI_PROVIDER=recorded` (respostas gravadas, usado no E2E) é recusado com `NODE_ENV=production`.
 - Conteúdo de documento é dado não confiável: chamada sem ferramentas, saída validada por código, valores só viram fato com evidência verificada; documento com texto dirigido a uma IA não gera fato.

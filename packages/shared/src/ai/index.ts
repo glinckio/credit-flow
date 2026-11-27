@@ -8,3 +8,4 @@ export * from './comparison.js';
 export * from './report.js';
 export * from './narrative.js';
 export * from './feedback.js';
+export * from './metrics.js';

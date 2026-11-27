@@ -5,6 +5,7 @@ import type { Env } from '../../config/env.js';
 import { ApplicationsModule } from '../applications/applications.module.js';
 import { AiAnalysisController } from './ai-analysis.controller.js';
 import { AiAnalysisService } from './ai-analysis.service.js';
+import { AiMetricsService } from './ai-metrics.service.js';
 import {
   DOCUMENT_EXTRACTOR,
   DOCUMENT_TEXT_READER,
@@ -86,6 +87,7 @@ function narrativeFactory(
   controllers: [AiAnalysisController],
   providers: [
     AiAnalysisService,
+    AiMetricsService,
     AiAnalysisWorker,
     { provide: ANTHROPIC_CLIENT, inject: [ConfigService], useFactory: clientFactory },
     {
