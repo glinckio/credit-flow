@@ -14,6 +14,7 @@ import { rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import pg from 'pg';
 import {
+  E2E_AI_RECORDINGS_DIR,
   E2E_API_PORT,
   E2E_PASSWORD,
   E2E_STORAGE_DIR,
@@ -37,6 +38,11 @@ const env = {
   STORAGE_DIR: E2E_STORAGE_DIR,
   SEED_DEMO_PASSWORD: E2E_PASSWORD,
   LOG_LEVEL: 'warn',
+  // AI analysis with recorded answers only: no network, no key, no cost.
+  AI_PROVIDER: 'recorded',
+  AI_RECORDINGS_DIR: E2E_AI_RECORDINGS_DIR,
+  AI_WORKER_POLL_MS: '500',
+  ANTHROPIC_API_KEY: '',
 };
 
 async function ensureDatabase() {
@@ -66,6 +72,7 @@ await ensureDatabase();
 execSync('pnpm exec prisma migrate deploy', { cwd: apiDir, env, stdio: 'inherit' });
 await truncateAll();
 rmSync(resolve(REPO_ROOT, E2E_STORAGE_DIR), { recursive: true, force: true });
+rmSync(resolve(REPO_ROOT, E2E_AI_RECORDINGS_DIR), { recursive: true, force: true });
 execSync('pnpm exec tsx prisma/seed/index.ts', { cwd: apiDir, env, stdio: 'inherit' });
 
 const api = spawn(process.execPath, ['dist/main.js'], { cwd: apiDir, env, stdio: 'inherit' });

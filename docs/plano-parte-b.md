@@ -174,3 +174,20 @@ A rodada encontrou dois problemas, ambos corrigidos (`pipeline-v3`):
 No replay das 17 rejeitadas, 15 passam. As 2 que continuam barradas são legítimas: uma cita ids no texto ("conforme o achado F1"), a outra usa um código interno. Prompt em `narrative-v2`. As 13 aceitas na rodada não puderam ser revalidadas, porque só o texto já renderizado foi guardado. A próxima rodada paga mede o conjunto completo com o validador atual.
 
 **Terceira rodada real (custo US$ 0,0193, validador e prompt atuais): 29/30 aceitas.** As 29 foram lidas contra os achados: nenhum valor trocado de origem, nenhum ponto de atenção omitido, nenhum termo de decisão. Ressalvas de redação, sem erro de fato: em `income-contradictory` o achado ambíguo é chamado de "divergência" numa frase; em `income-matches-gross`, "confere com valores do Documento 1" (o marcador mostra bruto e líquido, então o analista vê qual confere). A única rejeição (`misread-value`) foi "Recomenda-se conferência manual": o termo "recomenda" é barrado mesmo nesse uso inofensivo. A regra foi mantida estrita de propósito: o custo é perder a narrativa desse caso, e o template continua exibido.
+
+## B5 — entregue
+
+**Painel na aba Análise** ([`AiAnalysisPanel.tsx`](../apps/web/src/features/ai-analysis/AiAnalysisPanel.tsx)), visível para quem tem `ai_analysis.read`:
+
+- Status da execução (na fila / em andamento, com atualização automática / concluída / parcial / falhou) e aviso fixo de que o relatório não é parecer nem decisão.
+- Avisos: documentos mudaram desde a análise (`stale`), documentos não analisados (`PARTIAL`), dados declarados mudaram depois da conclusão (a narrativa passa a ser marcada como desatualizada), conteúdo expurgado, falha (a análise manual segue).
+- Narrativa (só quando aceita pela validação), identificada como redigida por IA; pontos de atenção primeiro, com evidência por achado (página, trecho e se o trecho foi conferido no documento); itens que conferem recolhidos; documentos com status e alertas; limitações.
+- **Histórico:** seletor de execuções e, para a selecionada, as mudanças em relação à anterior ([`diffFindings`](../packages/shared/src/ai/feedback.ts): achados novos, que não constam mais, com tipo diferente ou com valor diferente). As duas execuções são comparadas com os mesmos dados declarados atuais, então só documentos, modelo e pipeline explicam a diferença.
+- **Reprocessar** (analista responsável, solicitação em análise): se os documentos não mudaram, a API responde `analysis-up-to-date` e a tela pede confirmação antes de enviar `force`.
+- **Avaliação por achado** (analista responsável): "Correto" / "Incorreto" e comentário opcional (até 500 caracteres).
+
+**API e banco:** migration `ai_finding_feedback` (uma avaliação por execução, achado e analista; enviar de novo substitui). `PUT /ai-analyses/:runId/findings/:findingId/feedback` (`ai_analysis.request` + responsável; `409 analysis-purged` depois do expurgo). O detalhe da execução devolve `feedback`. Auditoria `ai_analysis.feedback` com veredito, assunto e tipo do achado, sem o comentário. O expurgo apaga as avaliações junto com as extrações.
+
+**E2E com respostas gravadas:** `AI_PROVIDER=recorded` lê `<AI_RECORDINGS_DIR>/<sha256>.json` no momento da chamada (sem rede, sem chave, sem custo; recusado em produção) e usa a narrativa determinística. O teste [`ai-analysis.spec.ts`](../e2e/tests/ai-analysis.spec.ts) monta documentos com camada de texto pela mesma DSL do eval, grava a resposta fiel e percorre: envio → primeira execução automática → divergência de renda com evidência → avaliação → reprocessar com confirmação → nenhuma mudança nos achados → parecer e status intactos. O fluxo principal também roda com a IA ligada (documentos sem gravação ficam "não analisados") e continua passando.
+
+**Testes:** componentes do painel (10), `diffFindings`, integração do feedback (permissões, substituição, validação, auditoria sem comentário, expurgo), configuração do provedor gravado.

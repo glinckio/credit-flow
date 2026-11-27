@@ -411,6 +411,8 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
     for (const run of expired) {
       await this.prisma.$transaction(async (tx) => {
         const { count } = await tx.aiDocumentExtraction.deleteMany({ where: { runId: run.id } });
+        // Feedback comments may quote document content.
+        const feedback = await tx.aiFindingFeedback.deleteMany({ where: { runId: run.id } });
         await tx.aiAnalysisRun.update({
           where: { id: run.id },
           data: { purgedAt: now, reportSnapshot: Prisma.DbNull },
@@ -423,6 +425,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
           after: {
             applicationId: run.applicationId,
             extractionsDeleted: count,
+            feedbackDeleted: feedback.count,
             retentionDays: days,
           },
         });

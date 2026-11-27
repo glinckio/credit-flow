@@ -29,6 +29,8 @@ import type {
   AiAnalysisRunDetailDto,
   AiAnalysisRunDto,
   AiDocumentExtractionDto,
+  FindingFeedbackBodyDto,
+  FindingFeedbackDto,
   RequestAiAnalysisDto,
 } from './ai-analysis.dto.js';
 import { DOCUMENT_EXTRACTOR, type OptionalDocumentExtractor } from './ai-analysis.tokens.js';
@@ -224,8 +226,20 @@ export class AiAnalysisService implements OnModuleInit {
             })),
             Object.fromEntries(documents.map((d) => [d.document.id, d.document.originalName])),
           );
+    const feedback = await this.prisma.aiFindingFeedback.findMany({
+      where: { runId },
+      orderBy: { updatedAt: 'asc' },
+      select: {
+        findingId: true,
+        verdict: true,
+        comment: true,
+        updatedAt: true,
+        author: { select: { id: true, name: true } },
+      },
+    });
     return {
       ...this.toRunDto(run, run.inputFingerprint !== current),
+      feedback,
       documents,
       findings: live?.findings ?? [],
       report: live?.report ?? null,
@@ -235,6 +249,68 @@ export class AiAnalysisService implements OnModuleInit {
         // Structural comparison: JSONB does not preserve key order.
         !!live && !!snapshot && !isDeepStrictEqual(live.findings, snapshot.findings),
     };
+  }
+
+  /**
+   * The assigned analyst's opinion on one finding (B5). One per analyst and
+   * finding; sending again replaces it. Never touches the finding, the
+   * report, reviews or the decision. The audit keeps the verdict and the
+   * finding's subject/kind, never the comment (it may quote the document).
+   */
+  async giveFeedback(
+    actor: AuthUser,
+    runId: string,
+    findingId: string,
+    dto: FindingFeedbackBodyDto,
+  ): Promise<FindingFeedbackDto> {
+    const detail = await this.get(actor, runId);
+    const app = await this.applications.getVisibleOrThrow(actor, detail.applicationId);
+    this.applications.assertAssignee(actor, app);
+    if (detail.purgedAt) {
+      throw Problems.conflict(
+        'analysis-purged',
+        'O conteúdo desta análise foi removido pela política de retenção',
+      );
+    }
+    const finding =
+      detail.findings.find((f) => f.id === findingId) ??
+      [
+        ...(detail.reportAtCompletion?.attention ?? []),
+        ...(detail.reportAtCompletion?.consistent ?? []),
+      ]
+        .map((i) => ({ id: i.findingId, subject: i.subject, kind: i.kind }))
+        .find((f) => f.id === findingId);
+    if (!finding) throw Problems.notFound('Achado');
+
+    const comment = dto.comment?.trim() || null;
+    return this.prisma.$transaction(async (tx) => {
+      const saved = await tx.aiFindingFeedback.upsert({
+        where: { runId_findingId_authorId: { runId, findingId, authorId: actor.id } },
+        create: { runId, findingId, authorId: actor.id, verdict: dto.verdict, comment },
+        update: { verdict: dto.verdict, comment },
+        select: {
+          findingId: true,
+          verdict: true,
+          comment: true,
+          updatedAt: true,
+          author: { select: { id: true, name: true } },
+        },
+      });
+      await this.audit.record(tx, {
+        actorId: actor.id,
+        action: 'ai_analysis.feedback',
+        entityType: 'AiAnalysisRun',
+        entityId: runId,
+        after: {
+          applicationId: detail.applicationId,
+          subject: finding.subject,
+          findingKind: finding.kind,
+          verdict: dto.verdict,
+          hasComment: comment !== null,
+        },
+      });
+      return saved;
+    });
   }
 
   /** Declared data of the application and its customer, in canonical forms. */

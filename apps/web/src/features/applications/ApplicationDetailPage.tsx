@@ -11,6 +11,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AiAnalysisPanel } from '@/features/ai-analysis/AiAnalysisPanel';
 import { AssignButton } from '@/features/analysis/AssignDialog';
 import { DecisionPanel } from '@/features/analysis/DecisionPanel';
 import { DocumentValidationCell } from '@/features/analysis/DocumentValidationCell';
@@ -140,6 +141,7 @@ function ApplicationDetail({ application: a }: { application: Application }) {
             <IndicatorsCard applicationId={a.id} />
             <IssuesPanel application={a} />
           </div>
+          <AiAnalysisPanel application={a} />
           <ReviewsPanel application={a} />
         </TabsContent>
 

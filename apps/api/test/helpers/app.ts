@@ -42,6 +42,7 @@ export function client(app: INestApplication, cookie?: string) {
     get: (url: string) => withAuth(request(server).get(url)),
     post: (url: string, body?: object) => mutating(request(server).post(url)).send(body ?? {}),
     patch: (url: string, body?: object) => mutating(request(server).patch(url)).send(body ?? {}),
+    put: (url: string, body?: object) => mutating(request(server).put(url)).send(body ?? {}),
     delete: (url: string) => mutating(request(server).delete(url)),
   };
 }

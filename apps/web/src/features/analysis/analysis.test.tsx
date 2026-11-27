@@ -103,6 +103,7 @@ function api(application: ReturnType<typeof app>, extra: Handler = () => undefin
     if (url.endsWith('/issues')) return jsonResponse([]);
     if (url.endsWith('/documents')) return jsonResponse([doc]);
     if (url.endsWith('/status-history')) return jsonResponse([]);
+    if (url.endsWith('/ai-analyses')) return jsonResponse([]);
     if (url.startsWith('/api/v1/users'))
       return jsonResponse({
         data: [{ id: 'a2', name: 'Carla Analista', email: 'c@x.test' }],

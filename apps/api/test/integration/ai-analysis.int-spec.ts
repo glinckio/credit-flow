@@ -383,6 +383,65 @@ describe('AI-assisted analysis (integration)', () => {
     await detail(analyst, '00000000-0000-4000-8000-000000000000').expect(404);
   });
 
+  it('takes feedback per finding from the assigned analyst only, without touching anything else', async () => {
+    await inReview();
+    const runId = (await worker.runOnce())!;
+    const d = (await detail(analyst, runId).expect(200)).body;
+    const findingId = d.report.attention[0].findingId as string;
+    const put = (who: Signed, fid: string, body: object) =>
+      who.http.put(
+        `/api/v1/ai-analyses/${runId}/findings/${encodeURIComponent(fid)}/feedback`,
+        body,
+      );
+
+    const comment = 'Valor confere com a pagina 1 do holerite.';
+    const saved = await put(analyst, findingId, { verdict: 'INCORRECT', comment }).expect(200);
+    expect(saved.body).toMatchObject({
+      findingId,
+      verdict: 'INCORRECT',
+      comment,
+      author: { id: analyst.user.id },
+    });
+    // Sending again replaces the analyst's own opinion.
+    await put(analyst, findingId, { verdict: 'CORRECT' }).expect(200);
+    const after = (await detail(admin, runId).expect(200)).body;
+    expect(after.feedback).toEqual([
+      expect.objectContaining({ findingId, verdict: 'CORRECT', comment: null }),
+    ]);
+    // Report and findings are unchanged.
+    expect(after.report).toEqual(d.report);
+    expect(after.findings).toEqual(d.findings);
+
+    await put(analyst2, findingId, { verdict: 'CORRECT' }).expect(403);
+    await put(admin, findingId, { verdict: 'CORRECT' }).expect(403);
+    await put(deciderOperator, findingId, { verdict: 'CORRECT' }).expect(403);
+    await put(analyst, findingId, { verdict: 'MAYBE' }).expect(400);
+    await put(analyst, findingId, { verdict: 'CORRECT', comment: 'x'.repeat(501) }).expect(400);
+    await put(analyst, `holderName:${'0'.repeat(8)}-0000-4000-8000-${'0'.repeat(12)}`, {
+      verdict: 'CORRECT',
+    }).expect(404);
+    await put(analyst, 'nao-e-um-achado', { verdict: 'CORRECT' }).expect(404);
+
+    // The audit keeps the verdict, never the comment.
+    const events = await t.prisma.auditEvent.findMany({
+      where: { action: 'ai_analysis.feedback' },
+    });
+    expect(events).toHaveLength(2);
+    expect(dump(events.map((e) => e.after))).not.toContain('holerite');
+    expect(events[0]!.after).toMatchObject({ verdict: 'INCORRECT', hasComment: true });
+
+    // Purged with the run's content (the comment may quote the document).
+    await t.prisma.aiAnalysisRun.update({
+      where: { id: runId },
+      data: { finishedAt: new Date(Date.now() - 91 * 24 * 60 * 60 * 1000) },
+    });
+    await worker.purgeExpired();
+    expect(await t.prisma.aiFindingFeedback.count()).toBe(0);
+    expect((await put(analyst, findingId, { verdict: 'CORRECT' }).expect(409)).body.type).toBe(
+      '/problems/analysis-purged',
+    );
+  });
+
   it('records provider failures per document (PARTIAL / FAILED) without blocking the human flow', async () => {
     recordings.set(sha256Hex(ID_PDF), { kind: 'error', code: 'TIMEOUT' });
     const id = await inReview();

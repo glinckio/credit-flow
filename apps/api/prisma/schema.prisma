@@ -101,6 +101,11 @@ enum AiAnalysisTrigger {
   MANUAL
 }
 
+enum FindingFeedbackVerdict {
+  CORRECT
+  INCORRECT
+}
+
 enum DocumentExtractionStatus {
   OK
   UNSUPPORTED
@@ -144,6 +149,7 @@ model User {
   statusChanges        ApplicationStatusHistory[]
   auditEvents          AuditEvent[]
   aiAnalysesRequested  AiAnalysisRun[]
+  aiFindingFeedback    AiFindingFeedback[]
 
   @@map("users")
 }
@@ -394,11 +400,34 @@ model AiAnalysisRun {
   application CreditApplication      @relation(fields: [applicationId], references: [id], onDelete: Restrict)
   requestedBy User?                  @relation(fields: [requestedById], references: [id], onDelete: Restrict)
   documents   AiDocumentExtraction[]
+  feedback    AiFindingFeedback[]
 
   @@index([applicationId, queuedAt])
   @@index([status, queuedAt])
   @@index([finishedAt])
   @@map("ai_analysis_runs")
+}
+
+/// The analyst's opinion on one finding of a run (stage B5). Measures how often the
+/// analyst corrects the AI; never changes the finding, review or decision. The
+/// comment may quote document content: purged with the run's extractions.
+model AiFindingFeedback {
+  id        String                 @id @default(uuid()) @db.Uuid
+  runId     String                 @map("run_id") @db.Uuid
+  /// Finding id within the run: "<subject>:<documentId>".
+  findingId String                 @map("finding_id") @db.VarChar(120)
+  authorId  String                 @map("author_id") @db.Uuid
+  verdict   FindingFeedbackVerdict
+  comment   String?                @db.VarChar(500)
+  createdAt DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  run    AiAnalysisRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  author User          @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, findingId, authorId])
+  @@index([authorId])
+  @@map("ai_finding_feedback")
 }
 
 /// Result for one document of a run. Write-once (UPDATE forbidden by trigger);

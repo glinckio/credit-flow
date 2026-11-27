@@ -15,6 +15,7 @@ describe('validateEnv', () => {
       LOG_LEVEL: 'info',
       STORAGE_DIR: 'var/storage',
       AI_PROVIDER: 'disabled',
+      AI_RECORDINGS_DIR: null,
       ANTHROPIC_API_KEY: null,
       AI_REQUEST_TIMEOUT_MS: 60_000,
       AI_EFFORT: 'medium',
@@ -39,6 +40,22 @@ describe('validateEnv', () => {
     });
     expect(env.AI_PROVIDER).toBe('anthropic');
     expect(() => validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'openai' })).toThrow(/AI_PROVIDER/);
+    // Recorded answers (E2E): needs a directory and never runs in production.
+    expect(() => validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'recorded' })).toThrow(
+      /AI_RECORDINGS_DIR is required/,
+    );
+    expect(
+      validateEnv({ DATABASE_URL: DB, AI_PROVIDER: 'recorded', AI_RECORDINGS_DIR: 'var/rec' })
+        .AI_RECORDINGS_DIR,
+    ).toBe('var/rec');
+    expect(() =>
+      validateEnv({
+        DATABASE_URL: DB,
+        NODE_ENV: 'production',
+        AI_PROVIDER: 'recorded',
+        AI_RECORDINGS_DIR: 'var/rec',
+      }),
+    ).toThrow(/not allowed in production/);
     expect(() => validateEnv({ DATABASE_URL: DB, AI_MAX_COST_USD_PER_RUN: '0' })).toThrow(
       /AI_MAX_COST_USD_PER_RUN/,
     );

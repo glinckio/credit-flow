@@ -6,12 +6,14 @@ import {
   DocumentType,
   EvidenceStatus,
   ExtractedFieldKey,
+  FINDING_FEEDBACK_COMMENT_MAX,
   FieldStatus,
   type Finding,
+  FindingFeedbackVerdict,
   type NarrativeReport,
   type TemplateReport,
 } from '@creditflow/shared';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { UserRefDto } from '../customers/customers.dto.js';
 
 export class RequestAiAnalysisDto {
@@ -22,6 +24,28 @@ export class RequestAiAnalysisDto {
   @IsOptional()
   @IsBoolean({ message: 'force deve ser verdadeiro ou falso' })
   force?: boolean;
+}
+
+export class FindingFeedbackBodyDto {
+  @ApiProperty({ enum: Object.values(FindingFeedbackVerdict) })
+  @IsIn(Object.values(FindingFeedbackVerdict), { message: 'verdict deve ser CORRECT ou INCORRECT' })
+  verdict!: FindingFeedbackVerdict;
+
+  @ApiPropertyOptional({ maxLength: FINDING_FEEDBACK_COMMENT_MAX })
+  @IsOptional()
+  @IsString({ message: 'comment deve ser texto' })
+  @MaxLength(FINDING_FEEDBACK_COMMENT_MAX, {
+    message: `comment deve ter no máximo ${FINDING_FEEDBACK_COMMENT_MAX} caracteres`,
+  })
+  comment?: string;
+}
+
+export class FindingFeedbackDto {
+  @ApiProperty() findingId!: string;
+  @ApiProperty({ enum: Object.values(FindingFeedbackVerdict) }) verdict!: FindingFeedbackVerdict;
+  @ApiProperty({ type: String, nullable: true }) comment!: string | null;
+  @ApiProperty({ type: UserRefDto }) author!: UserRefDto;
+  @ApiProperty({ type: String, format: 'date-time' }) updatedAt!: Date;
 }
 
 export class AiAnalysisRunDto {
@@ -143,4 +167,10 @@ export class AiAnalysisRunDetailDto extends AiAnalysisRunDto {
     description: 'Os dados declarados mudaram desde a conclusão e alteraram algum achado.',
   })
   declaredDataChanged!: boolean;
+
+  @ApiProperty({
+    type: [FindingFeedbackDto],
+    description: 'Avaliação dos achados pelo analista (B5). Removida no expurgo.',
+  })
+  feedback!: FindingFeedbackDto[];
 }

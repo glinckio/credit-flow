@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  type PipeTransform,
+  Post,
+  Put,
+} from '@nestjs/common';
 import {
   ApiAcceptedResponse,
   ApiConflictResponse,
@@ -16,9 +25,20 @@ import { SESSION_COOKIE } from '../auth/session.service.js';
 import {
   AiAnalysisRunDetailDto,
   AiAnalysisRunDto,
+  FindingFeedbackBodyDto,
+  FindingFeedbackDto,
   RequestAiAnalysisDto,
 } from './ai-analysis.dto.js';
+import { Problems } from '../../common/http/app-exception.js';
 import { AiAnalysisService } from './ai-analysis.service.js';
+
+/** `<subject>:<uuid>`; anything else is a 404 (no such finding). */
+class FindingIdPipe implements PipeTransform<string, string> {
+  transform(value: string): string {
+    if (!/^[a-zA-Z]{1,40}:[0-9a-f-]{36}$/.test(value)) throw Problems.notFound('Achado');
+    return value;
+  }
+}
 
 @ApiTags('ai-analysis')
 @ApiCookieAuth(SESSION_COOKIE)
@@ -62,5 +82,24 @@ export class AiAnalysisController {
   @ApiOkResponse({ type: AiAnalysisRunDetailDto })
   get(@CurrentUser() actor: AuthUser, @Param('runId', new UuidParamPipe('Análise')) runId: string) {
     return this.service.get(actor, runId);
+  }
+
+  @Put('ai-analyses/:runId/findings/:findingId/feedback')
+  @RequirePermissions(Permission.AI_ANALYSIS_REQUEST)
+  @ApiOperation({
+    summary: 'Avaliar um achado (analista responsável): correto ou incorreto',
+    description:
+      'Mede a frequência de correções do analista. Não altera o achado, o parecer nem a decisão. ' +
+      'Enviar de novo substitui a avaliação anterior do mesmo analista.',
+  })
+  @ApiOkResponse({ type: FindingFeedbackDto })
+  @ApiConflictResponse({ description: '`analysis-purged`.' })
+  feedback(
+    @CurrentUser() actor: AuthUser,
+    @Param('runId', new UuidParamPipe('Análise')) runId: string,
+    @Param('findingId', new FindingIdPipe()) findingId: string,
+    @Body() dto: FindingFeedbackBodyDto,
+  ) {
+    return this.service.giveFeedback(actor, runId, findingId, dto);
   }
 }

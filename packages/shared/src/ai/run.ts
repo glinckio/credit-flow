@@ -1,4 +1,5 @@
 import { DocumentExtractionStatus } from './extraction.js';
+import { FindingFeedbackVerdict } from './feedback.js';
 
 /**
  * Lifecycle of one AI analysis run (ADR-0011). Values mirror the Prisma enums
@@ -89,4 +90,5 @@ export const AI_SHARED_ENUMS = {
   AiAnalysisRunStatus,
   AiAnalysisTrigger,
   DocumentExtractionStatus,
+  FindingFeedbackVerdict,
 } as const;

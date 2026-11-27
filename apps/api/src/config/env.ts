@@ -22,8 +22,11 @@ export interface Env {
   /**
    * AI-assisted analysis provider (ADR-0011). "disabled": no model is called and
    * no run is queued. "anthropic": Claude through the Messages API (synthetic data only).
+   * "recorded": replays answers stored in AI_RECORDINGS_DIR (E2E; refused in production).
    */
-  AI_PROVIDER: 'disabled' | 'anthropic';
+  AI_PROVIDER: 'disabled' | 'anthropic' | 'recorded';
+  /** Directory of `<sha256>.json` recorded answers; required when AI_PROVIDER=recorded. */
+  AI_RECORDINGS_DIR: string | null;
   /** Required when AI_PROVIDER=anthropic. Secret: never logged, never audited. */
   ANTHROPIC_API_KEY: string | null;
   /** Per-request timeout of the provider call. */
@@ -120,8 +123,13 @@ export function validateEnv(raw: Record<string, unknown>): Env {
   }
 
   const aiProvider = String(raw.AI_PROVIDER ?? 'disabled').trim() || 'disabled';
-  if (aiProvider !== 'disabled' && aiProvider !== 'anthropic') {
-    errors.push('AI_PROVIDER must be "disabled" or "anthropic"');
+  if (!['disabled', 'anthropic', 'recorded'].includes(aiProvider)) {
+    errors.push('AI_PROVIDER must be "disabled", "anthropic" or "recorded"');
+  }
+  const recordingsDir = String(raw.AI_RECORDINGS_DIR ?? '').trim() || null;
+  if (aiProvider === 'recorded') {
+    if (nodeEnv === 'production') errors.push('AI_PROVIDER=recorded is not allowed in production');
+    if (!recordingsDir) errors.push('AI_RECORDINGS_DIR is required when AI_PROVIDER=recorded');
   }
   const apiKey = String(raw.ANTHROPIC_API_KEY ?? '').trim() || null;
   if (aiProvider === 'anthropic' && !apiKey) {
@@ -170,6 +178,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     LOG_LEVEL: logLevel as Env['LOG_LEVEL'],
     STORAGE_DIR: storageDir,
     AI_PROVIDER: aiProvider as Env['AI_PROVIDER'],
+    AI_RECORDINGS_DIR: recordingsDir,
     ANTHROPIC_API_KEY: apiKey,
     AI_REQUEST_TIMEOUT_MS: aiRequestTimeoutMs,
     AI_EFFORT: aiEffort as Env['AI_EFFORT'],

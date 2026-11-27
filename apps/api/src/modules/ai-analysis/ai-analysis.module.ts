@@ -13,8 +13,11 @@ import {
   type OptionalNarrativeWriter,
 } from './ai-analysis.tokens.js';
 import { AiAnalysisWorker } from './ai-analysis.worker.js';
+import { resolveStorageRoot } from '../../infra/storage/storage.module.js';
 import { AnthropicExtractor } from './extraction/anthropic-extractor.js';
+import { DirectoryRecordedExtractor } from './extraction/directory-recorded-extractor.js';
 import { AnthropicNarrativeWriter } from './narrative/anthropic-narrative-writer.js';
+import { DeterministicNarrativeWriter } from './narrative/narrative-writer.js';
 import { PdfJsTextReader } from './text/pdfjs-text-reader.js';
 
 /**
@@ -23,7 +26,8 @@ import { PdfJsTextReader } from './text/pdfjs-text-reader.js';
  * it, so removing it leaves Part A intact.
  *
  * AI_PROVIDER=disabled → extractor null (nothing queued). AI_PROVIDER=anthropic
- * → Claude through the Messages API. Tests override DOCUMENT_EXTRACTOR with a
+ * → Claude through the Messages API. AI_PROVIDER=recorded (E2E, never in
+ * production) → answers recorded in AI_RECORDINGS_DIR. Tests override DOCUMENT_EXTRACTOR with a
  * RecordedExtractor and NARRATIVE_WRITER with a DeterministicNarrativeWriter
  * (no network, no cost).
  */
@@ -43,6 +47,11 @@ function extractorFactory(
   config: ConfigService<Env, true>,
   client: Anthropic | null,
 ): OptionalDocumentExtractor {
+  if (config.get('AI_PROVIDER', { infer: true }) === 'recorded') {
+    return new DirectoryRecordedExtractor(
+      resolveStorageRoot(config.get('AI_RECORDINGS_DIR', { infer: true })!),
+    );
+  }
   if (!client) return null;
   const logger = new Logger('AnthropicExtractor');
   const timeoutMs = config.get('AI_REQUEST_TIMEOUT_MS', { infer: true });
@@ -59,6 +68,9 @@ function narrativeFactory(
   config: ConfigService<Env, true>,
   client: Anthropic | null,
 ): OptionalNarrativeWriter {
+  if (config.get('AI_PROVIDER', { infer: true }) === 'recorded') {
+    return new DeterministicNarrativeWriter();
+  }
   if (!client) return null;
   const logger = new Logger('AnthropicNarrativeWriter');
   return new AnthropicNarrativeWriter(client, {
