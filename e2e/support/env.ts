@@ -11,6 +11,8 @@ export const E2E_API_PORT = 3100;
 export const E2E_WEB_PORT = 5175;
 export const E2E_WEB_ORIGIN = `http://localhost:${E2E_WEB_PORT}`;
 export const E2E_STORAGE_DIR = 'var/storage-e2e';
+/** Recorded model answers for AI_PROVIDER=recorded (never a real model in E2E). */
+export const E2E_AI_RECORDINGS_DIR = 'var/ai-recordings-e2e';
 
 /** Test-only password of the seeded demo users in the throwaway E2E database. */
 export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? 'e2e-senha-sintetica-123';

@@ -15,6 +15,8 @@ const lazy = {
     import('@/features/dashboard/DashboardPage').then((m) => ({ Component: m.DashboardPage })),
   users: () => import('@/features/admin-users/UsersPage').then((m) => ({ Component: m.UsersPage })),
   audit: () => import('@/features/audit/AuditPage').then((m) => ({ Component: m.AuditPage })),
+  aiMetrics: () =>
+    import('@/features/ai-analysis/AiMetricsPage').then((m) => ({ Component: m.AiMetricsPage })),
   login: () => import('@/features/auth/LoginPage').then((m) => ({ Component: m.LoginPage })),
   changePassword: () =>
     import('@/features/auth/ChangePasswordPage').then((m) => ({ Component: m.ChangePasswordPage })),
@@ -113,6 +115,11 @@ export const routes: RouteObject[] = [
             path: '/admin/auditoria',
             element: <RequirePermission permission={Permission.AUDIT_READ} />,
             children: [{ index: true, lazy: lazy.audit }],
+          },
+          {
+            path: '/admin/ia',
+            element: <RequirePermission permission={Permission.AI_ANALYSIS_METRICS} />,
+            children: [{ index: true, lazy: lazy.aiMetrics }],
           },
           { path: '*', element: <NotFoundPage /> },
         ],

@@ -32,6 +32,8 @@ erDiagram
 | `credit_reviews`             | Pareceres                                   | **append-only**; o mais recente é o vigente                                                                                                                                                |
 | `credit_decisions`           | Decisão humana final                        | **append-only**; no máximo 1 por solicitação (UNIQUE); referencia o parecer vigente                                                                                                        |
 | `application_status_history` | Linha do tempo de status                    | **append-only**                                                                                                                                                                            |
+| `ai_analysis_runs`           | Execuções da análise por IA (Parte B)       | status, gatilho, impressão digital, modelo/versões, tokens; no máximo 1 ativa por solicitação (índice parcial); conteúdo expurgado após 90 dias (`purged_at`)                              |
+| `ai_document_extractions`    | Resultado por documento de uma execução     | **write-once** (trigger proíbe UPDATE); campos extraídos com evidência; apagado só pelo expurgo                                                                                            |
 | `audit_events`               | Trilha de auditoria                         | **append-only**; `before`/`after` só com campos permitidos; nunca segredos nem conteúdo de arquivos                                                                                        |
 
 ## Integridade no banco (além do Prisma)

@@ -1,0 +1,70 @@
+{
+  "extraction": {
+    "claude-haiku-5-5": {
+      "fingerprint": {
+        "model": "claude-haiku-5-5",
+        "effort": "medium",
+        "requests": "5cf16808ebd5002cea99a32cc116752f1670fa0fdc3062c7e560b892ac8d88fd",
+        "pipelineVersion": "pipeline-v3",
+        "extractionSchemaVersion": "extraction-v1",
+        "comparisonVersion": "comparison-v1",
+        "datasetVersion": "v1"
+      },
+      "metrics": {
+        "fieldAccuracy": {
+          "hit": 120,
+          "total": 120
+        },
+        "evidenceValidity": {
+          "hit": 79,
+          "total": 82
+        },
+        "statusAccuracy": {
+          "hit": 22,
+          "total": 24
+        },
+        "safeFallback": {
+          "hit": 1,
+          "total": 2
+        },
+        "injectionAlert": {
+          "hit": 3,
+          "total": 3
+        },
+        "findingAccuracy": {
+          "hit": 36,
+          "total": 36
+        },
+        "unsupportedAccepted": 0,
+        "falseInjectionAlerts": 0,
+        "falseDivergences": 0,
+        "missedDivergences": 0,
+        "costPerDocumentUsd": 0.000663
+      },
+      "recordedAt": "2026-11-27T19:00:19.836Z",
+      "costUsd": 0.015922
+    }
+  },
+  "narrative": {
+    "claude-haiku-5-5": {
+      "fingerprint": {
+        "model": "claude-haiku-5-5",
+        "effort": "medium",
+        "request": "ca2ab957bf4b89e8effc3489e5b7d45afe00c1f6ad39757180941781a1fe44d6",
+        "narrativeSchemaVersion": "narrative-v1",
+        "reportTemplateVersion": "report-template-v1",
+        "comparisonVersion": "comparison-v1",
+        "datasetVersion": "v1"
+      },
+      "metrics": {
+        "accepted": {
+          "hit": 28,
+          "total": 30
+        },
+        "costPerCaseUsd": 0.000615
+      },
+      "recordedAt": "2026-11-27T19:02:58.150Z",
+      "costUsd": 0.018451
+    }
+  }
+}

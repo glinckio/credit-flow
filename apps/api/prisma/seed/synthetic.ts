@@ -47,11 +47,45 @@ export function syntheticEmail(localPart: string): string {
 
 /** Escapes text for a PDF literal string and keeps it ASCII-only. */
 function pdfText(value: string): string {
-  return value
+  return pdfVisibleText(value).replace(/([\\()])/g, '\\$1');
+}
+
+/**
+ * The text a PDF reader recovers from a line written by `buildSyntheticPdf`
+ * (accents stripped, non-ASCII replaced). Used as the evaluation ground truth.
+ */
+export function pdfVisibleText(line: string): string {
+  return line
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
-    .replace(/[^\x20-\x7e]/g, '?')
-    .replace(/([\\()])/g, '\\$1');
+    .replace(/[^\x20-\x7e]/g, '?');
+}
+
+/**
+ * One page of a synthetic PDF: text lines (with a text layer) or a "scan"
+ * (only drawn shapes, no text layer — what a reader sees in a scanned paper).
+ */
+export type SyntheticPdfPage = { lines: readonly string[] } | { scan: true; variant?: number };
+
+function pageContent(page: SyntheticPdfPage): string {
+  if ('scan' in page) {
+    // Grey bars that look like text lines but carry no text operators.
+    // `variant` changes the bar widths so different scans have different bytes.
+    const v = page.variant ?? 0;
+    const bars = Array.from(
+      { length: 12 },
+      (_, i) => `72 ${760 - i * 22} ${300 + ((i * 37 + v * 53) % 200)} 9 re`,
+    );
+    return ['0.6 g', ...bars, 'f'].join('\n');
+  }
+  return [
+    'BT',
+    '/F1 12 Tf',
+    '14 TL',
+    '72 770 Td',
+    ...page.lines.map((line) => `(${pdfText(line)}) '`),
+    'ET',
+  ].join('\n');
 }
 
 /**
@@ -59,21 +93,30 @@ function pdfText(value: string): string {
  * given lines. Pure bytes: no external tooling, nothing executable.
  */
 export function buildSyntheticPdf(lines: readonly string[]): Buffer {
-  const content = [
-    'BT',
-    '/F1 12 Tf',
-    '14 TL',
-    '72 770 Td',
-    ...lines.map((line) => `(${pdfText(line)}) '`),
-    'ET',
-  ].join('\n');
+  return buildSyntheticPdfPages([{ lines }]);
+}
 
+/**
+ * Multi-page variant. Object layout: 1 catalog, 2 pages, 3 first page,
+ * 4 font, 5 first content, then (page, content) pairs — so a single page
+ * produces exactly the bytes `buildSyntheticPdf` always produced.
+ */
+export function buildSyntheticPdfPages(pages: readonly SyntheticPdfPage[]): Buffer {
+  if (pages.length === 0) throw new Error('A PDF needs at least one page');
+  const pageObj = (contentRef: number) =>
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents ${contentRef} 0 R >>`;
+  const stream = (content: string) =>
+    `<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream`;
+
+  const [first, ...rest] = pages.map(pageContent);
+  const pageRefs = [3, ...rest.map((_, i) => 6 + i * 2)];
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    `<< /Type /Pages /Kids [${pageRefs.map((r) => `${r} 0 R`).join(' ')}] /Count ${pages.length} >>`,
+    pageObj(5),
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    `<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream`,
+    stream(first ?? ''),
+    ...rest.flatMap((content, i) => [pageObj(7 + i * 2), stream(content)]),
   ];
 
   let pdf = '%PDF-1.4\n';

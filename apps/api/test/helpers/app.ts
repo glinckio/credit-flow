@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import request from 'supertest';
 import type { Role } from '@creditflow/shared';
 import { AppModule } from '../../src/app.module.js';
@@ -16,9 +16,14 @@ export interface TestApp {
   close: () => Promise<void>;
 }
 
-/** Full Nest app (same pipeline as production) bound to the test database. */
-export async function createTestApp(): Promise<TestApp> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+/**
+ * Full Nest app (same pipeline as production) bound to the test database.
+ * `configure` may override providers (e.g. the AI extractor with recorded answers).
+ */
+export async function createTestApp(
+  configure: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
+): Promise<TestApp> {
+  const moduleRef = await configure(Test.createTestingModule({ imports: [AppModule] })).compile();
   const app = moduleRef.createNestApplication();
   configureApp(app);
   await app.init();
@@ -37,6 +42,7 @@ export function client(app: INestApplication, cookie?: string) {
     get: (url: string) => withAuth(request(server).get(url)),
     post: (url: string, body?: object) => mutating(request(server).post(url)).send(body ?? {}),
     patch: (url: string, body?: object) => mutating(request(server).patch(url)).send(body ?? {}),
+    put: (url: string, body?: object) => mutating(request(server).put(url)).send(body ?? {}),
     delete: (url: string) => mutating(request(server).delete(url)),
   };
 }

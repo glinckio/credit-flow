@@ -23,6 +23,12 @@ export const Permission = {
   DOCUMENT_READ: 'document.read',
   DOCUMENT_UPLOAD: 'document.upload',
   DOCUMENT_VALIDATE: 'document.validate',
+  /** Read AI-assisted analyses (support reports). Operators only with the decide grant. */
+  AI_ANALYSIS_READ: 'ai_analysis.read',
+  /** Request a manual reprocessing of the AI analysis (assignee only, checked in the service). */
+  AI_ANALYSIS_REQUEST: 'ai_analysis.request',
+  /** Aggregated cost and quality of the AI analyses (no extracted content). Admin only. */
+  AI_ANALYSIS_METRICS: 'ai_analysis.metrics',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 
@@ -46,6 +52,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     P.APPLICATION_REOPEN,
     P.DOCUMENT_READ,
     P.DOCUMENT_UPLOAD,
+    P.AI_ANALYSIS_READ,
+    P.AI_ANALYSIS_METRICS,
   ],
   [Role.ANALYST]: [
     P.DASHBOARD_READ,
@@ -54,6 +62,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     P.APPLICATION_REVIEW,
     P.DOCUMENT_READ,
     P.DOCUMENT_VALIDATE,
+    P.AI_ANALYSIS_READ,
+    P.AI_ANALYSIS_REQUEST,
   ],
   [Role.OPERATOR]: [
     P.DASHBOARD_READ,
@@ -77,12 +87,15 @@ export function canReceiveDecideGrant(role: Role): boolean {
  * - ANALYST: always may decide.
  * - OPERATOR: may decide only with the explicit `canDecide` grant.
  * - ADMIN: never decides (segregation: who manages users does not decide credit).
+ * - AI_ANALYSIS_READ follows the decide grant for operators.
  */
 export function effectivePermissions(user: { role: Role; canDecide: boolean }): Permission[] {
   const base = [...ROLE_PERMISSIONS[user.role]];
   const decides =
     user.role === Role.ANALYST || (canReceiveDecideGrant(user.role) && user.canDecide);
   if (decides) base.push(P.APPLICATION_DECIDE);
+  // Whoever may decide may read the AI support report that informs the decision (ADR-0011, 9).
+  if (decides && !base.includes(P.AI_ANALYSIS_READ)) base.push(P.AI_ANALYSIS_READ);
   return base;
 }
 

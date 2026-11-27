@@ -1,4 +1,4 @@
-import { SHARED_ENUMS, cpfCheckDigits, cnpjCheckDigits } from '@creditflow/shared';
+import { AI_SHARED_ENUMS, SHARED_ENUMS, cpfCheckDigits, cnpjCheckDigits } from '@creditflow/shared';
 import { Prisma, type PrismaClient } from '../../src/generated/prisma/client.js';
 import { createTestPrisma, resetDatabase } from '../helpers/database.js';
 
@@ -68,10 +68,11 @@ describe('database schema (integration, real PostgreSQL)', () => {
     const dbEnums = new Map<string, string[]>();
     for (const r of rows) dbEnums.set(r.typname, [...(dbEnums.get(r.typname) ?? []), r.enumlabel]);
 
-    for (const [name, values] of Object.entries(SHARED_ENUMS)) {
+    const mirrored = { ...SHARED_ENUMS, ...AI_SHARED_ENUMS };
+    for (const [name, values] of Object.entries(mirrored)) {
       expect(dbEnums.get(name), `enum ${name}`).toEqual(Object.values(values));
     }
-    expect([...dbEnums.keys()].sort()).toEqual(Object.keys(SHARED_ENUMS).sort());
+    expect([...dbEnums.keys()].sort()).toEqual(Object.keys(mirrored).sort());
   });
 
   it('assigns sequential application numbers', async () => {

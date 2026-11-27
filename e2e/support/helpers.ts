@@ -29,13 +29,18 @@ export function syntheticPdf(label: string): Buffer {
   return Buffer.from(`%PDF-1.4\n% DOCUMENTO SINTETICO E2E - ${label}\n%%EOF\n`, 'latin1');
 }
 
-export async function attachDocument(page: Page, typeLabel: string, fileName: string) {
+export async function attachDocument(
+  page: Page,
+  typeLabel: string,
+  fileName: string,
+  bytes: Buffer = syntheticPdf(fileName),
+) {
   const form = page.locator('form', { hasText: 'Anexar documento' });
   await form.getByLabel('Tipo').selectOption({ label: typeLabel });
   await form.getByLabel('Arquivo').setInputFiles({
     name: fileName,
     mimeType: 'application/pdf',
-    buffer: syntheticPdf(fileName),
+    buffer: bytes,
   });
   await form.getByRole('button', { name: 'Anexar' }).click();
   await expect(page.getByText(fileName, { exact: true })).toBeVisible();

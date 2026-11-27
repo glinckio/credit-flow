@@ -69,3 +69,18 @@ Além das suítes de integração, o teste ponta a ponta confirma no navegador r
 - Sem bloqueio de conta após N falhas (só rate limit), sem MFA.
 - Rate limit em memória: vale por instância da API (suficiente para o MVP de instância única).
 - CSP padrão do helmet também se aplica ao Swagger UI (verificado: renderiza).
+
+## IA de apoio (Parte B)
+
+Decisões em [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md); estado atual em [plano-parte-b.md](plano-parte-b.md).
+
+- A IA não altera solicitação, documentos, pareceres nem decisões; nenhuma rota de IA escreve fora das tabelas `ai_*`.
+- Leitura: `ai_analysis.read` (analista, admin, operador com `canDecide`) + mesma visibilidade da solicitação (rascunho oculto → 404). Reprocessar e avaliar achados: `ai_analysis.request` + analista responsável. Métricas agregadas (`GET /ai-metrics`): `ai_analysis.metrics`, só admin; só contagens e valores, nunca conteúdo extraído, trechos ou comentários.
+- Avaliação de achado (correto/incorreto + comentário): o comentário pode citar o documento, então fica fora da auditoria (que guarda só veredito, assunto e tipo do achado) e é apagado no expurgo.
+- `AI_PROVIDER=recorded` (respostas gravadas, usado no E2E) é recusado com `NODE_ENV=production`.
+- Conteúdo de documento é dado não confiável: chamada sem ferramentas, saída validada por código, valores só viram fato com evidência verificada; documento com texto dirigido a uma IA não gera fato.
+- Logs e auditoria nunca contêm valores extraídos nem trechos de documento; o expurgo remove o conteúdo após `AI_RETENTION_DAYS`.
+- Somente dados sintéticos no piloto.
+- PDFs são lidos pelo PDF.js apenas para extrair texto (sem renderização, sem fontes, sem XFA); falha de leitura = documento sem camada de texto.
+- `ANTHROPIC_API_KEY` só no `.env` (gitignored); a validação de ambiente nunca ecoa o valor; erros do provedor são registrados só com classe e status.
+- Narrativa (B4): o modelo recebe só ids, assuntos, tipos de achado e nomes genéricos ("Documento 2"); nunca o documento, valores ou nomes de arquivo (texto controlado por quem envia). Valores entram por marcadores substituídos no backend; a validação em código descarta a narrativa inteira se houver frase sem referência, número fora de marcador, termo de decisão/acusação, afirmação contrária ao achado ou ponto de atenção omitido. Narrativa rejeitada não guarda o texto, só os motivos.

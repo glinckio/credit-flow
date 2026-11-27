@@ -1,5 +1,6 @@
 import { Permission } from '@creditflow/shared';
 import {
+  Bot,
   FileText,
   LayoutDashboard,
   type LucideIcon,
@@ -39,6 +40,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Auditoria',
     icon: ScrollText,
     permission: Permission.AUDIT_READ,
+  },
+  {
+    to: '/admin/ia',
+    label: 'Métricas da IA',
+    icon: Bot,
+    permission: Permission.AI_ANALYSIS_METRICS,
   },
 ];
 

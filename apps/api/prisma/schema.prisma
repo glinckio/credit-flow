@@ -86,6 +86,38 @@ enum DecisionOutcome {
   REJECTED
 }
 
+// Part B (ADR-0011). Mirrors AI_SHARED_ENUMS in @creditflow/shared.
+
+enum AiAnalysisRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+enum AiAnalysisTrigger {
+  AUTO_FIRST_REVIEW
+  MANUAL
+}
+
+enum FindingFeedbackVerdict {
+  CORRECT
+  INCORRECT
+}
+
+enum DocumentExtractionStatus {
+  OK
+  UNSUPPORTED
+  UNREADABLE
+  SCHEMA_INVALID
+  REFUSED
+  TIMEOUT
+  PROVIDER_ERROR
+  TOO_LARGE
+  SKIPPED_BUDGET
+}
+
 // ───────────────────────── Identity & access ─────────────────────────
 
 model User {
@@ -116,6 +148,8 @@ model User {
   decisions            CreditDecision[]
   statusChanges        ApplicationStatusHistory[]
   auditEvents          AuditEvent[]
+  aiAnalysesRequested  AiAnalysisRun[]
+  aiFindingFeedback    AiFindingFeedback[]
 
   @@map("users")
 }
@@ -210,6 +244,7 @@ model CreditApplication {
   reviews       CreditReview[]
   decision      CreditDecision?
   statusHistory ApplicationStatusHistory[]
+  aiAnalyses    AiAnalysisRun[]
 
   @@index([status])
   @@index([customerId])
@@ -241,9 +276,10 @@ model CreditDocument {
   /// Logical removal (allowed only while the application is editable).
   deletedAt        DateTime?                @map("deleted_at") @db.Timestamptz(3)
 
-  application CreditApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
-  uploadedBy  User              @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
-  validatedBy User?             @relation("DocumentValidatedBy", fields: [validatedById], references: [id], onDelete: Restrict)
+  application   CreditApplication      @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  uploadedBy    User                   @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  validatedBy   User?                  @relation("DocumentValidatedBy", fields: [validatedById], references: [id], onDelete: Restrict)
+  aiExtractions AiDocumentExtraction[]
 
   @@index([applicationId])
   @@map("credit_documents")
@@ -320,6 +356,111 @@ model ApplicationStatusHistory {
 
   @@index([applicationId, createdAt])
   @@map("application_status_history")
+}
+
+// ──────────────────────── AI-assisted analysis (Part B) ────────────────────────
+
+/// One AI analysis of an application (ADR-0011). Support material for the
+/// analyst only: nothing here changes application data or decides anything.
+model AiAnalysisRun {
+  id                      String              @id @default(uuid()) @db.Uuid
+  applicationId           String              @map("application_id") @db.Uuid
+  trigger                 AiAnalysisTrigger
+  /// Analyst who clicked "Reprocessar", or the actor of the transition that triggered it.
+  requestedById           String?             @map("requested_by_id") @db.Uuid
+  status                  AiAnalysisRunStatus @default(QUEUED)
+  /// sha256 over the sorted document hashes, model and versions (not the application
+  /// version: it changes on every transition, and the comparison with declared data
+  /// is recomputed on read).
+  inputFingerprint        String              @map("input_fingerprint") @db.Char(64)
+  /// Application version when requested (information only).
+  applicationVersion      Int                 @map("application_version")
+  model                   String
+  pipelineVersion         String              @map("pipeline_version")
+  extractionSchemaVersion String              @map("extraction_schema_version")
+  /// Prompt version of the provider adapter; "none" for the recorded extractor.
+  promptVersion           String              @map("prompt_version")
+  errorCode               String?             @map("error_code")
+  inputTokens             Int                 @default(0) @map("input_tokens")
+  outputTokens            Int                 @default(0) @map("output_tokens")
+  /// Estimated provider cost (stage B3).
+  costUsd                 Decimal?            @map("cost_usd") @db.Decimal(12, 6)
+  latencyMs               Int?                @map("latency_ms")
+  /// Worker lease; a RUNNING run whose lease expired was interrupted.
+  leaseExpiresAt          DateTime?           @map("lease_expires_at") @db.Timestamptz(3)
+  queuedAt                DateTime            @default(now()) @map("queued_at") @db.Timestamptz(3)
+  startedAt               DateTime?           @map("started_at") @db.Timestamptz(3)
+  finishedAt              DateTime?           @map("finished_at") @db.Timestamptz(3)
+  /// Findings and template report as computed when the run finished (comparison
+  /// with the declared data at that moment). Purged with the extractions.
+  reportSnapshot          Json?               @map("report_snapshot")
+  /// Set when extracted content was removed by the retention policy (90 days).
+  purgedAt                DateTime?           @map("purged_at") @db.Timestamptz(3)
+
+  application CreditApplication      @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  requestedBy User?                  @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  documents   AiDocumentExtraction[]
+  feedback    AiFindingFeedback[]
+
+  @@index([applicationId, queuedAt])
+  @@index([status, queuedAt])
+  @@index([finishedAt])
+  @@map("ai_analysis_runs")
+}
+
+/// The analyst's opinion on one finding of a run (stage B5). Measures how often the
+/// analyst corrects the AI; never changes the finding, review or decision. The
+/// comment may quote document content: purged with the run's extractions.
+model AiFindingFeedback {
+  id        String                 @id @default(uuid()) @db.Uuid
+  runId     String                 @map("run_id") @db.Uuid
+  /// Finding id within the run: "<subject>:<documentId>".
+  findingId String                 @map("finding_id") @db.VarChar(120)
+  authorId  String                 @map("author_id") @db.Uuid
+  verdict   FindingFeedbackVerdict
+  comment   String?                @db.VarChar(500)
+  createdAt DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  run    AiAnalysisRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  author User          @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, findingId, authorId])
+  @@index([authorId])
+  @@map("ai_finding_feedback")
+}
+
+/// Result for one document of a run. Write-once (UPDATE forbidden by trigger);
+/// rows are deleted only by the retention purge.
+model AiDocumentExtraction {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  runId               String                   @map("run_id") @db.Uuid
+  documentId          String                   @map("document_id") @db.Uuid
+  /// Hash of the exact bytes analysed.
+  documentSha256      String                   @map("document_sha256") @db.Char(64)
+  declaredType        DocumentType             @map("declared_type")
+  status              DocumentExtractionStatus
+  detectedType        String?                  @map("detected_type")
+  typeMatchesDeclared Boolean?                 @map("type_matches_declared")
+  hasTextLayer        Boolean                  @map("has_text_layer")
+  injectionAlert      Boolean                  @map("injection_alert")
+  /// Ids of the deterministic patterns matched (never the matched text).
+  injectionPatterns   String[]                 @map("injection_patterns")
+  injectionModelFlag  Boolean?                 @map("injection_model_flag")
+  /// FieldAssessment[] (values, quotes, evidence). Contains extracted data: purged after retention.
+  fields              Json
+  schemaErrors        Json                     @map("schema_errors")
+  inputTokens         Int                      @default(0) @map("input_tokens")
+  outputTokens        Int                      @default(0) @map("output_tokens")
+  latencyMs           Int                      @default(0) @map("latency_ms")
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  run      AiAnalysisRun  @relation(fields: [runId], references: [id], onDelete: Restrict)
+  document CreditDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, documentId])
+  @@index([documentId])
+  @@map("ai_document_extractions")
 }
 
 // ─────────────────────────────── Audit ───────────────────────────────

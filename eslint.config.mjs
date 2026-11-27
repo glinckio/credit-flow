@@ -43,7 +43,7 @@ export default tseslint.config(
   },
   {
     // Seed and CLI scripts legitimately print to stdout.
-    files: ['apps/api/prisma/**/*.ts', 'apps/api/scripts/**/*.ts'],
+    files: ['apps/api/prisma/**/*.ts', 'apps/api/scripts/**/*.ts', 'apps/api/evals/cli/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
 );

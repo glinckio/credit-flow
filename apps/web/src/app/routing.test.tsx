@@ -32,7 +32,7 @@ describe('route guards and navigation', () => {
   });
 
   it.each([
-    ['ADMIN', ['Dashboard', 'Clientes', 'Solicitações', 'Usuários', 'Auditoria']],
+    ['ADMIN', ['Dashboard', 'Clientes', 'Solicitações', 'Usuários', 'Auditoria', 'Métricas da IA']],
     ['ANALYST', ['Dashboard', 'Clientes', 'Solicitações']],
     ['OPERATOR', ['Dashboard', 'Clientes', 'Solicitações']],
   ] as const)('shows the %s menu according to permissions', async (role, expected) => {
