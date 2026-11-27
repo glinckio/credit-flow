@@ -17,7 +17,8 @@
     "db:seed": "tsx prisma/seed/index.ts",
     "db:reset": "prisma migrate reset --force && tsx prisma/seed/index.ts",
     "eval:dataset": "tsx evals/cli/generate-dataset.ts",
-    "eval:ai": "tsx evals/cli/run-eval.ts"
+    "eval:ai": "pnpm --filter @creditflow/shared build && tsx evals/cli/run-eval.ts",
+    "eval:narrative": "pnpm --filter @creditflow/shared build && tsx evals/cli/run-narrative-eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

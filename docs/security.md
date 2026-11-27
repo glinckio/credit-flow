@@ -78,6 +78,7 @@ Decisões em [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md); estado atua
 - Leitura: `ai_analysis.read` (analista, admin, operador com `canDecide`) + mesma visibilidade da solicitação (rascunho oculto → 404). Reprocessar: `ai_analysis.request` + analista responsável.
 - Conteúdo de documento é dado não confiável: chamada sem ferramentas, saída validada por código, valores só viram fato com evidência verificada; documento com texto dirigido a uma IA não gera fato.
 - Logs e auditoria nunca contêm valores extraídos nem trechos de documento; o expurgo remove o conteúdo após `AI_RETENTION_DAYS`.
-- Somente dados sintéticos no piloto. `AI_PROVIDER` só aceita `disabled` até a etapa B3.
+- Somente dados sintéticos no piloto.
 - PDFs são lidos pelo PDF.js apenas para extrair texto (sem renderização, sem fontes, sem XFA); falha de leitura = documento sem camada de texto.
 - `ANTHROPIC_API_KEY` só no `.env` (gitignored); a validação de ambiente nunca ecoa o valor; erros do provedor são registrados só com classe e status.
+- Narrativa (B4): o modelo recebe só ids, assuntos, tipos de achado e nomes genéricos ("Documento 2"); nunca o documento, valores ou nomes de arquivo (texto controlado por quem envia). Valores entram por marcadores substituídos no backend; a validação em código descarta a narrativa inteira se houver frase sem referência, número fora de marcador, termo de decisão/acusação, afirmação contrária ao achado ou ponto de atenção omitido. Narrativa rejeitada não guarda o texto, só os motivos.

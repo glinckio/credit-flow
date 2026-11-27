@@ -6,3 +6,4 @@ export * from './injection.js';
 export * from './run.js';
 export * from './comparison.js';
 export * from './report.js';
+export * from './narrative.js';

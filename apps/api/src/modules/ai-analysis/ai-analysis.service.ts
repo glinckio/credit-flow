@@ -11,6 +11,7 @@ import {
   type DeclaredData,
   EXTRACTION_SCHEMA_VERSION,
   type Finding,
+  type NarrativeReport,
   type TemplateReport,
   buildTemplateReport,
   compareWithDeclared,
@@ -40,6 +41,8 @@ export interface ReportSnapshot {
   comparisonVersion: string;
   findings: Finding[];
   report: TemplateReport;
+  /** Absent in runs finished before stage B4. */
+  narrative?: NarrativeReport;
 }
 
 type Tx = Prisma.TransactionClient;
@@ -227,6 +230,7 @@ export class AiAnalysisService implements OnModuleInit {
       findings: live?.findings ?? [],
       report: live?.report ?? null,
       reportAtCompletion: snapshot?.report ?? null,
+      narrative: snapshot?.narrative ?? null,
       declaredDataChanged:
         // Structural comparison: JSONB does not preserve key order.
         !!live && !!snapshot && !isDeepStrictEqual(live.findings, snapshot.findings),

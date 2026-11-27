@@ -8,6 +8,7 @@ import {
   ExtractedFieldKey,
   FieldStatus,
   type Finding,
+  type NarrativeReport,
   type TemplateReport,
 } from '@creditflow/shared';
 import { IsBoolean, IsOptional } from 'class-validator';
@@ -126,6 +127,17 @@ export class AiAnalysisRunDetailDto extends AiAnalysisRunDto {
     description: 'O mesmo relatório como estava ao concluir a análise.',
   })
   reportAtCompletion!: TemplateReport | null;
+
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description:
+      'Narrativa redigida por modelo sobre os achados ao concluir (B4). Só tem frases quando status = OK; ' +
+      'cada frase referencia os achados que a sustentam. Refere-se a reportAtCompletion: quando ' +
+      'declaredDataChanged = true, está desatualizada. O template continua sendo a referência.',
+  })
+  narrative!: NarrativeReport | null;
 
   @ApiProperty({
     description: 'Os dados declarados mudaram desde a conclusão e alteraram algum achado.',

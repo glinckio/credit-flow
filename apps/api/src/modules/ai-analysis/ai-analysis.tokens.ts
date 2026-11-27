@@ -1,4 +1,5 @@
 import type { DocumentExtractor } from './extraction/document-extractor.js';
+import type { NarrativeWriter } from './narrative/narrative-writer.js';
 
 /**
  * Injection tokens of the AI module. Provider value `null` for the extractor
@@ -19,3 +20,7 @@ export interface DocumentTextReader {
   /** Page count for the cost guard; images count as 1; null when unknown. */
   countPages(bytes: Buffer, mimeType: string): Promise<number | null>;
 }
+
+/** Narrative writer (ADR-0011, D8). `null` → the run stores narrative status DISABLED. */
+export const NARRATIVE_WRITER = Symbol('NARRATIVE_WRITER');
+export type OptionalNarrativeWriter = NarrativeWriter | null;

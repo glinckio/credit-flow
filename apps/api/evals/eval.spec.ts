@@ -1,10 +1,17 @@
-import { DocumentExtractionStatus, EvidenceStatus } from '@creditflow/shared';
+import {
+  DocumentExtractionStatus,
+  EvidenceStatus,
+  FindingKind,
+  NarrativeStatus,
+} from '@creditflow/shared';
 import { materialize } from './dataset/builder.js';
 import { buildCases } from './dataset/cases.js';
 import { caseFindings, computeFindingMetrics } from './harness/findings.js';
 import { computeMetrics } from './harness/metrics.js';
 import { recordingsFor, runEval } from './harness/run-eval.js';
 import { RecordedExtractor } from '../src/modules/ai-analysis/extraction/recorded-extractor.js';
+import { DeterministicNarrativeWriter } from '../src/modules/ai-analysis/narrative/narrative-writer.js';
+import { runNarrativeEval } from './harness/narrative.js';
 
 const cases = buildCases();
 
@@ -138,6 +145,27 @@ describe('offline evaluation with recorded answers', async () => {
     for (const f of scan.assessment.fields.filter((x) => x.modelStatus === 'FOUND')) {
       expect(f.evidence?.status).toBe(EvidenceStatus.UNVERIFIABLE);
       expect(f.acceptedValue).toBeNull();
+    }
+  });
+});
+
+describe('offline narrative evaluation', async () => {
+  const runs = await runEval(cases, new RecordedExtractor(recordingsFor(cases)));
+  const narratives = await runNarrativeEval(cases, runs, new DeterministicNarrativeWriter());
+
+  it('accepts the deterministic narrative of every case (the validator has no false alarm on it)', () => {
+    for (const n of narratives) expect(n.narrative.status, n.caseId).toBe(NarrativeStatus.OK);
+  });
+
+  it('mentions every point of attention of every case', () => {
+    for (const n of narratives) {
+      const cited = new Set(n.narrative.sentences.flatMap((s) => s.findingIds));
+      const findings = caseFindings(
+        cases.find((c) => c.id === n.caseId)!,
+        runs,
+      );
+      for (const f of findings.filter((x) => x.kind !== FindingKind.CONSISTENT))
+        expect(cited, `${n.caseId}: ${f.id}`).toContain(f.id);
     }
   });
 });

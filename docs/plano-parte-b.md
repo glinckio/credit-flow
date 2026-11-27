@@ -150,3 +150,27 @@ A rodada encontrou dois problemas, ambos corrigidos (`pipeline-v3`):
 
 1. **Harness:** os 6 casos que só simulam falha do provedor (timeout, recusa, JSON inválido etc.) foram enviados ao modelo real, que os respondeu corretamente. O gabarito esperava "nenhum valor", e a métrica crítica acusou 30. Esses casos agora rodam só no modo gravado (`simulatesProviderFailure`, com teste garantindo a marcação).
 2. **Pipeline:** um documento ilegível, de tipo "desconhecido", era classificado como "tipo não suportado" (divergência de tipo) antes de "ilegível". A renda ficava sem achado. A precedência foi invertida: ilegível vem primeiro e nunca vira divergência de tipo. O relatório do eval agora lista os documentos cujo status difere do gabarito, para confirmar isso na próxima rodada.
+
+## B4 — entregue
+
+**Narrativa por modelo** sobre os achados já verificados, nunca sobre o documento. Regras completas na decisão 11 do [ADR-0011](decisions/ADR-0011-ia-apoio-ao-analista.md).
+
+- **Contrato** ([`narrative.ts`](../packages/shared/src/ai/narrative.ts)): `buildNarrativeInput` (ids, assuntos, tipos e "Documento N"; nenhum valor, nome ou nome de arquivo), `validateNarrative` (rejeita a narrativa inteira em qualquer violação) e `NarrativeStatus` (`OK`, `REJECTED`, `FAILED`, `SKIPPED_BUDGET`, `NOT_NEEDED`, `DISABLED`).
+- **Adaptador** [`AnthropicNarrativeWriter`](../apps/api/src/modules/ai-analysis/narrative/anthropic-narrative-writer.ts): mesmo cliente, modelo e esforço da extração; prompt versionado (`narrative-v1`). A chamada estruturada ficou num helper comum ([`anthropic-structured-call.ts`](../apps/api/src/modules/ai-analysis/provider/anthropic-structured-call.ts)), com o mesmo tratamento de recusa, saída cortada e timeout.
+- **Worker:** depois do template, uma chamada por execução, sujeita ao mesmo limite de custo; tokens e custo somam na execução; a auditoria `ai_analysis.completed` registra `narrativeStatus` (sem texto). O status da execução não depende da narrativa.
+- **API:** `GET /ai-analyses/:runId` devolve `narrative` (do snapshot da conclusão). Com `declaredDataChanged = true`, a narrativa está desatualizada e o template atual prevalece. Expurgada junto com o snapshot.
+- **Sem migration:** a narrativa fica dentro de `report_snapshot`.
+
+**Avaliação:** `pnpm --filter @creditflow/api eval:narrative` usa a extração gravada (gratuita) e só envia as narrativas ao modelo. Offline, um escritor determinístico precisa passar na validação em 30/30 casos (teste). Com `--provider anthropic` mostra a estimativa; roda só com `--confirm` e autorização.
+
+**Primeira rodada real (2026-11-27, `claude-haiku-5-5`, custo US$ 0,019):** 15/30 narrativas aceitas. Rejeições: 19 por `contradicts-finding-kind` e 1 frase sem referência. Nenhuma narrativa aceita trouxe termo de decisão, número fora de marcador ou ponto de atenção omitido. As aceitas foram conferidas uma a uma contra os achados. Dois falsos alarmes do validador foram corrigidos e cobertos por teste: palavra de atenção negada ("não há divergências") passa a contar como afirmação positiva, e "correspondente" deixou de casar com "corresponde". O eval agora mostra as frases rejeitadas e o motivo de cada uma, para a próxima rodada confirmar o efeito. O texto rejeitado continua sem ser gravado em produção.
+
+**Segunda rodada real (custo US$ 0,018):** 13/30 aceitas. Essa rodada usou, por erro meu, o build antigo do `@creditflow/shared`: o eval roda sobre o `dist`, e a correção ainda não tinha sido compilada. Como o eval agora guarda as frases do modelo, as rejeitadas foram revalidadas sem custo (`eval:narrative --replay <relatório.json>`). A leitura dessas frases levou a mais três ajustes:
+
+- valores com origem embutida: o marcador vira "R$ 4.100,00 (declarado)" / "bruto R$ 5.000,00 (no documento)". Assim o valor declarado não aparece como se fosse do documento, mesmo se o modelo montar mal a frase;
+- código interno no texto ("CONSISTENT") é rejeitado;
+- a negação de palavras e expressões de atenção vale só quando nega a existência ("não há", "nenhum", "sem", "não foram identificados"), na mesma oração.
+
+No replay das 17 rejeitadas, 15 passam. As 2 que continuam barradas são legítimas: uma cita ids no texto ("conforme o achado F1"), a outra usa um código interno. Prompt em `narrative-v2`. As 13 aceitas na rodada não puderam ser revalidadas, porque só o texto já renderizado foi guardado. A próxima rodada paga mede o conjunto completo com o validador atual.
+
+**Terceira rodada real (custo US$ 0,0193, validador e prompt atuais): 29/30 aceitas.** As 29 foram lidas contra os achados: nenhum valor trocado de origem, nenhum ponto de atenção omitido, nenhum termo de decisão. Ressalvas de redação, sem erro de fato: em `income-contradictory` o achado ambíguo é chamado de "divergência" numa frase; em `income-matches-gross`, "confere com valores do Documento 1" (o marcador mostra bruto e líquido, então o analista vê qual confere). A única rejeição (`misread-value`) foi "Recomenda-se conferência manual": o termo "recomenda" é barrado mesmo nesse uso inofensivo. A regra foi mantida estrita de propósito: o custo é perder a narrativa desse caso, e o template continua exibido.

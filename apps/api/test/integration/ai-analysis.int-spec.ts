@@ -1,10 +1,15 @@
 import request from 'supertest';
-import { Role } from '@creditflow/shared';
+import { type NarrativeInput, Role } from '@creditflow/shared';
 import { buildSyntheticPdfPages, sha256Hex } from '../../prisma/seed/synthetic.js';
 import {
   DOCUMENT_EXTRACTOR,
   DOCUMENT_TEXT_READER,
+  NARRATIVE_WRITER,
 } from '../../src/modules/ai-analysis/ai-analysis.tokens.js';
+import {
+  DeterministicNarrativeWriter,
+  type NarrativeWriterResult,
+} from '../../src/modules/ai-analysis/narrative/narrative-writer.js';
 import { AiAnalysisWorker } from '../../src/modules/ai-analysis/ai-analysis.worker.js';
 import {
   type RecordedResponse,
@@ -108,6 +113,10 @@ class PricedRecordedExtractor implements DocumentExtractor {
   }
 }
 const extractor = new PricedRecordedExtractor();
+
+/** Narrative writer: deterministic (always valid) unless a test scripts an answer. */
+let narrativeScript: ((input: NarrativeInput) => NarrativeWriterResult) | undefined;
+const narrator = new DeterministicNarrativeWriter((input) => narrativeScript?.(input));
 function answerAll() {
   recordings.set(sha256Hex(ID_PDF), { kind: 'ok', output: ID_ANSWER });
   recordings.set(sha256Hex(INCOME_PDF), { kind: 'ok', output: INCOME_ANSWER });
@@ -130,7 +139,9 @@ describe('AI-assisted analysis (integration)', () => {
         .overrideProvider(DOCUMENT_EXTRACTOR)
         .useValue(extractor)
         .overrideProvider(DOCUMENT_TEXT_READER)
-        .useValue(new SyntheticPdfTextReader()),
+        .useValue(new SyntheticPdfTextReader())
+        .overrideProvider(NARRATIVE_WRITER)
+        .useValue(narrator),
     );
     worker = t.app.get(AiAnalysisWorker);
   });
@@ -138,6 +149,8 @@ describe('AI-assisted analysis (integration)', () => {
     await resetDatabase(t.prisma);
     answerAll();
     extractor.usage = { inputTokens: 0, outputTokens: 0 };
+    narrativeScript = undefined;
+    narrator.calls = 0;
     extractor.calls = 0;
     operator = await signedIn(t, Role.OPERATOR);
     deciderOperator = await signedIn(t, Role.OPERATOR, { canDecide: true });
@@ -234,6 +247,14 @@ describe('AI-assisted analysis (integration)', () => {
     expect(d.body.reportAtCompletion).toEqual(d.body.report);
     expect(d.body.declaredDataChanged).toBe(false);
 
+    // B4: narrative over the verified findings, values inserted by the backend.
+    expect(d.body.narrative).toMatchObject({ status: 'OK', rejections: [] });
+    const incomeSentence = d.body.narrative.sentences.find((s: { findingIds: string[] }) =>
+      s.findingIds.includes(incomeItem.findingId),
+    );
+    expect(incomeSentence.text).toContain('R$ 6.500,00 (declarado)');
+    expect(incomeSentence.text).toContain('bruto R$ 5.000,00; líquido R$ 4.100,00 (no documento)');
+
     // Declared data changes later: the live report follows, the snapshot stays.
     const app0 = await t.prisma.creditApplication.findUniqueOrThrow({ where: { id } });
     await t.prisma.customer.update({
@@ -244,6 +265,7 @@ describe('AI-assisted analysis (integration)', () => {
     expect(after.body.declaredDataChanged).toBe(true);
     expect(after.body.reportAtCompletion).toEqual(d.body.report);
     expect(after.body.report).not.toEqual(d.body.report);
+    expect(after.body.narrative).toEqual(d.body.narrative); // refers to the snapshot
 
     // The application itself is untouched by the AI.
     const app = await operator.http.get(url(id)).expect(200);
@@ -256,6 +278,32 @@ describe('AI-assisted analysis (integration)', () => {
       'ai_analysis.requested',
     ]);
     expect(dump(events)).not.toMatch(/4100|4\.100|Maria Silva|529\.982/);
+    expect(events.find((e) => e.action === 'ai_analysis.completed')?.after).toMatchObject({
+      narrativeStatus: 'OK',
+    });
+  });
+
+  it('discards a narrative that breaks a rule; the run and the template are unaffected', async () => {
+    narrativeScript = (input) => ({
+      kind: 'ok',
+      output: {
+        sentences: input.facts.map((f) => ({
+          text: `${f.subject}: recomenda-se aprovar, renda de R$ 9.999,00.`,
+          refs: [f.id],
+        })),
+      },
+      model: 'claude-haiku-5-5',
+      usage: { inputTokens: 800, outputTokens: 120 },
+      latencyMs: 1,
+    });
+    await inReview();
+    const runId = (await worker.runOnce())!;
+    const d = (await detail(analyst, runId).expect(200)).body;
+    expect(d.status).toBe('SUCCEEDED');
+    expect(d.report.attention.length).toBeGreaterThan(0);
+    expect(d.narrative).toMatchObject({ status: 'REJECTED', sentences: [] });
+    expect(dump(d.narrative)).not.toMatch(/9\.999|aprovar/);
+    expect(d.costUsd).not.toBe('0.000000'); // the call was billed
   });
 
   it('never queues automatically again (release → start-review, pending → resume)', async () => {
@@ -396,6 +444,7 @@ describe('AI-assisted analysis (integration)', () => {
       findings: [],
       report: null,
       reportAtCompletion: null,
+      narrative: null,
     });
     expect(d.body.purgedAt).not.toBeNull();
     expect(await t.prisma.aiDocumentExtraction.count()).toBe(0);
@@ -441,7 +490,9 @@ describe('AI-assisted analysis cost guards', () => {
         .overrideProvider(DOCUMENT_EXTRACTOR)
         .useValue(extractor)
         .overrideProvider(DOCUMENT_TEXT_READER)
-        .useValue(new SyntheticPdfTextReader()),
+        .useValue(new SyntheticPdfTextReader())
+        .overrideProvider(NARRATIVE_WRITER)
+        .useValue(narrator),
     );
     worker = t.app.get(AiAnalysisWorker);
   });
@@ -453,6 +504,7 @@ describe('AI-assisted analysis cost guards', () => {
     await resetDatabase(t.prisma);
     answerAll();
     extractor.calls = 0;
+    narrator.calls = 0;
     const operator = await signedIn(t, Role.OPERATOR);
     const analyst = await signedIn(t, Role.ANALYST);
     const customerId = (await createCustomer(t.prisma, operator.user.id)).id;
@@ -503,6 +555,8 @@ describe('AI-assisted analysis cost guards', () => {
     const d = (await analyst.http.get(`/api/v1/ai-analyses/${runId}`).expect(200)).body;
     expect(d).toMatchObject({ status: 'PARTIAL', costUsd: '0.500000', inputTokens: 1_000_000 });
     expect(d.documents.map((x: { status: string }) => x.status)).toEqual(['OK', 'SKIPPED_BUDGET']);
+    expect(d.narrative.status).toBe('SKIPPED_BUDGET');
+    expect(narrator.calls).toBe(0);
     expect(d.report.limitations.some((l: string) => l.includes('não puderam ser analisados'))).toBe(
       true,
     );

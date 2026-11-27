@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { DOCUMENT_TYPE_LABELS, FIELD_SPECS, extractionJsonSchema } from '@creditflow/shared';
+import { structuredCall } from '../provider/anthropic-structured-call.js';
 import type {
   DocumentExtractor,
   ExtractionRequest,
-  ExtractionUsage,
   ExtractorResult,
   ProviderErrorCode,
 } from './document-extractor.js';
@@ -61,14 +61,7 @@ function sourceBlock(req: ExtractionRequest): Anthropic.ContentBlockParam {
   throw new Error(`Unsupported MIME type for extraction: ${req.mimeType}`);
 }
 
-/** Most specific first: timeouts before connection errors (subclass). */
-export function providerErrorCode(err: unknown): ProviderErrorCode {
-  if (err instanceof Anthropic.APIConnectionTimeoutError) return 'TIMEOUT';
-  if (err instanceof Anthropic.RequestTimeoutError) return 'TIMEOUT';
-  return 'UNAVAILABLE';
-}
-
-const ZERO: ExtractionUsage = { inputTokens: 0, outputTokens: 0 };
+export { providerErrorCode } from '../provider/anthropic-structured-call.js';
 
 export interface AnthropicExtractorOptions {
   model: string;
@@ -90,58 +83,16 @@ export class AnthropicExtractor implements DocumentExtractor {
     this.model = options.model;
   }
 
-  async extract(req: ExtractionRequest): Promise<ExtractorResult> {
-    const started = Date.now();
-    const fail = (
-      code: ProviderErrorCode,
-      usage: ExtractionUsage,
-      detail: string,
-    ): ExtractorResult => {
-      this.options.onError?.({ documentId: req.documentId, code, detail });
-      return { kind: 'error', code, model: this.model, usage, latencyMs: Date.now() - started };
-    };
-
-    let message: Anthropic.Message;
-    try {
-      message = await this.client.messages.create(
-        {
-          model: this.model,
-          max_tokens: this.options.maxTokens ?? 8000,
-          system: SYSTEM_PROMPT,
-          output_config: {
-            effort: this.options.effort,
-            format: { type: 'json_schema', schema: extractionJsonSchema(req.requestedFields) },
-          },
-          messages: [
-            {
-              role: 'user',
-              content: [sourceBlock(req), { type: 'text', text: buildInstructions(req) }],
-            },
-          ],
-        },
-        { timeout: this.options.timeoutMs },
-      );
-    } catch (err) {
-      const status = err instanceof Anthropic.APIError ? String(err.status ?? '') : '';
-      const name = err instanceof Error ? err.constructor.name : 'unknown';
-      return fail(providerErrorCode(err), ZERO, `${name}${status ? ` ${status}` : ''}`);
-    }
-
-    const usage = {
-      inputTokens: message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0),
-      outputTokens: message.usage.output_tokens,
-    };
-    if (message.stop_reason === 'refusal') return fail('REFUSED', usage, 'stop_reason refusal');
-    if (message.stop_reason !== 'end_turn') {
-      return fail('INVALID_RESPONSE', usage, `stop_reason ${message.stop_reason}`);
-    }
-    const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
-    let output: unknown;
-    try {
-      output = JSON.parse(text);
-    } catch {
-      return fail('INVALID_RESPONSE', usage, 'response is not JSON');
-    }
-    return { kind: 'ok', output, model: this.model, usage, latencyMs: Date.now() - started };
+  extract(req: ExtractionRequest): Promise<ExtractorResult> {
+    return structuredCall(this.client, {
+      model: this.model,
+      effort: this.options.effort,
+      timeoutMs: this.options.timeoutMs,
+      maxTokens: this.options.maxTokens ?? 8000,
+      system: SYSTEM_PROMPT,
+      content: [sourceBlock(req), { type: 'text', text: buildInstructions(req) }],
+      schema: extractionJsonSchema(req.requestedFields),
+      onError: (i) => this.options.onError?.({ documentId: req.documentId, ...i }),
+    });
   }
 }

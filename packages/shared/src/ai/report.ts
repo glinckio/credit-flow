@@ -61,6 +61,13 @@ export const EXTRACTION_STATUS_LABELS: Readonly<Record<DocumentExtractionStatus,
   SKIPPED_BUDGET: 'Não analisado: limite de custo da análise atingido',
 };
 
+/** Fixed document alerts of the template (also mapped to neutral codes for the narrative). */
+export const DOCUMENT_ALERTS = {
+  INJECTION: 'Contém texto dirigido a sistemas automatizados; nenhum valor dele foi aceito.',
+  NO_TEXT_LAYER: 'Sem texto pesquisável: valores não puderam ser conferidos por código.',
+  TYPE_MISMATCH: 'O conteúdo não corresponde ao tipo informado no envio.',
+} as const;
+
 const FIELD_SHORT_LABELS: Readonly<Partial<Record<ExtractedFieldKey, string>>> = {
   grossMonthlyIncome: 'bruto',
   netMonthlyIncome: 'líquido',
@@ -95,6 +102,31 @@ function formatValue(
   return value;
 }
 
+/**
+ * Display texts of a finding's values, exactly as the template shows them
+ * (also the only values a narrative may contain, through placeholders).
+ */
+export function findingValueTexts(f: Finding): {
+  declared: string | null;
+  document: string | null;
+} {
+  if (f.subject === 'documentType') return { declared: null, document: null };
+  const declared = f.declaredValue === null ? null : formatValue(null, f.subject, f.declaredValue);
+  const document = f.documentValues.length
+    ? f.documentValues
+        .map((v) => {
+          const label =
+            f.documentValues.length > 1 || f.subject === 'monthlyIncome'
+              ? FIELD_SHORT_LABELS[v.field]
+              : null;
+          const value = formatValue(v.field, f.subject, v.value);
+          return label ? `${label} ${value}` : value;
+        })
+        .join('; ')
+    : null;
+  return { declared, document };
+}
+
 // ───────────────────────────── report ─────────────────────────────
 
 export interface ReportItem {
@@ -110,6 +142,7 @@ export interface ReportItem {
 
 export interface ReportDocument {
   documentId: string;
+  declaredType: DocumentType;
   label: string;
   status: DocumentExtractionStatus;
   statusLabel: string;
@@ -144,17 +177,8 @@ function itemText(f: Finding, doc: AssessedDocument | undefined): string {
     const detected = DOCUMENT_TYPE_LABELS[doc?.detectedType ?? 'UNKNOWN'] ?? 'tipo não reconhecido';
     return `Enviado como ${declared}; o conteúdo foi identificado como ${detected}.`;
   }
-  const declared = f.declaredValue === null ? '—' : formatValue(null, f.subject, f.declaredValue);
-  const found = f.documentValues
-    .map((v) => {
-      const label =
-        f.documentValues.length > 1 || f.subject === 'monthlyIncome'
-          ? FIELD_SHORT_LABELS[v.field]
-          : null;
-      const value = formatValue(v.field, f.subject, v.value);
-      return label ? `${label} ${value}` : value;
-    })
-    .join('; ');
+  const declared = findingValueTexts(f).declared ?? '—';
+  const found = findingValueTexts(f).document ?? '';
   switch (f.kind) {
     case FindingKind.CONSISTENT:
       return `Declarado: ${declared}. No documento: ${found}.`;
@@ -211,15 +235,14 @@ export function buildTemplateReport(
 
   const reportDocs = documents.map((d): ReportDocument => {
     const alerts: string[] = [];
-    if (d.injectionAlert)
-      alerts.push('Contém texto dirigido a sistemas automatizados; nenhum valor dele foi aceito.');
+    if (d.injectionAlert) alerts.push(DOCUMENT_ALERTS.INJECTION);
     if (d.status === DocumentExtractionStatus.OK && !d.hasTextLayer) {
-      alerts.push('Sem texto pesquisável: valores não puderam ser conferidos por código.');
+      alerts.push(DOCUMENT_ALERTS.NO_TEXT_LAYER);
     }
-    if (d.typeMatchesDeclared === false)
-      alerts.push('O conteúdo não corresponde ao tipo informado no envio.');
+    if (d.typeMatchesDeclared === false) alerts.push(DOCUMENT_ALERTS.TYPE_MISMATCH);
     return {
       documentId: d.documentId,
+      declaredType: d.declaredType,
       label: label(d.documentId),
       status: d.status,
       statusLabel: EXTRACTION_STATUS_LABELS[d.status],

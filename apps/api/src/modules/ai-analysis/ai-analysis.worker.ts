@@ -26,8 +26,11 @@ import {
   DOCUMENT_EXTRACTOR,
   DOCUMENT_TEXT_READER,
   type DocumentTextReader,
+  NARRATIVE_WRITER,
   type OptionalDocumentExtractor,
+  type OptionalNarrativeWriter,
 } from './ai-analysis.tokens.js';
+import { composeNarrative } from './narrative/compose-narrative.js';
 import { assessExtraction, skippedAssessment } from './extraction/assess-extraction.js';
 import type { DocumentExtractor, ExtractorResult } from './extraction/document-extractor.js';
 import { AiAnalysisService, type ReportSnapshot } from './ai-analysis.service.js';
@@ -69,6 +72,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
     private readonly config: ConfigService<Env, true>,
     @Inject(DOCUMENT_EXTRACTOR) private readonly extractor: OptionalDocumentExtractor,
     @Inject(DOCUMENT_TEXT_READER) private readonly textReader: DocumentTextReader,
+    @Inject(NARRATIVE_WRITER) private readonly narrativeWriter: OptionalNarrativeWriter,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -272,6 +276,27 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
       assessed,
       Object.fromEntries(docs.map((d) => [d.id, d.originalName])),
     );
+    // B4: narrative over the verified findings (never the documents). Same cost
+    // guard as the extraction; any problem only means "template without narrative".
+    const composed = await composeNarrative(
+      this.narrativeWriter,
+      snapshot.report,
+      snapshot.findings,
+      {
+        budgetExhausted: costUsd >= maxCostUsd,
+        onWriterError: (err) => this.logger.error({ err, runId }, 'Narrative writer threw'),
+      },
+    );
+    snapshot.narrative = composed.narrative;
+    if (composed.model) {
+      costUsd += requestCostUsd(
+        composed.model,
+        composed.usage.inputTokens,
+        composed.usage.outputTokens,
+      );
+    }
+    inputTokens += composed.usage.inputTokens;
+    outputTokens += composed.usage.outputTokens;
     await this.finish(
       runId,
       status,
@@ -282,6 +307,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
         latencyMs: Date.now() - started,
         documents: statuses.length,
         costUsd,
+        narrativeStatus: composed.narrative.status,
       },
       snapshot,
     );
@@ -317,6 +343,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
       latencyMs: number;
       documents: number;
       costUsd?: number;
+      narrativeStatus?: string;
     } = {
       inputTokens: 0,
       outputTokens: 0,
@@ -359,6 +386,7 @@ export class AiAnalysisWorker implements OnApplicationBootstrap, OnModuleDestroy
           inputTokens: metrics.inputTokens,
           outputTokens: metrics.outputTokens,
           costUsd: metrics.costUsd ?? 0,
+          narrativeStatus: metrics.narrativeStatus ?? null,
         },
       });
     });
